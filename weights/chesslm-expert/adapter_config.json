@@ -1,0 +1,37 @@
+{
+  "batch_size": 16,
+  "clear_cache_threshold": 0,
+  "fine_tune_type": "lora",
+  "grad_accumulation_steps": 1,
+  "grad_checkpoint": false,
+  "iters": 3000,
+  "learning_rate": 7e-05,
+  "lora_parameters": {
+    "rank": 8,
+    "dropout": 0.0,
+    "scale": 20.0
+  },
+  "lr_schedule": null,
+  "mask_prompt": true,
+  "max_seq_length": 2048,
+  "model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "num_layers": 16,
+  "optimizer": "adam",
+  "optimizer_config": {
+    "adam": {},
+    "adamw": {},
+    "muon": {},
+    "sgd": {},
+    "adafactor": {}
+  },
+  "project_name": null,
+  "report_to": null,
+  "save_every": 3000,
+  "seed": 0,
+  "steps_per_eval": 100000,
+  "steps_per_report": 10,
+  "test": false,
+  "test_batches": 500,
+  "train": true,
+  "val_batches": 25
+}

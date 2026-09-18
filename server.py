@@ -1,4 +1,5 @@
 """Web UI backend: play against ChessLM, see search visits and the RAG coach's explanation."""
+import os
 import time
 import chess
 from fastapi import FastAPI, HTTPException
@@ -8,10 +9,24 @@ from pydantic import BaseModel
 from engine import Policy, search
 from coach import Coach
 
+BASE_MODEL = "Qwen/Qwen2.5-1.5B-Instruct"
+SHIPPED_ADAPTER = "weights/chesslm-expert"
+
+
+def load_policy():
+    """CHESSLM_MODEL wins; then a locally merged models/best; otherwise the base model plus the adapter
+    shipped in the repo, so a fresh clone plays the trained bot without retraining anything."""
+    if os.environ.get("CHESSLM_MODEL"):
+        return Policy(os.environ["CHESSLM_MODEL"], adapter=None)
+    if os.path.isdir("models/best"):
+        return Policy("models/best", adapter=None)
+    return Policy(BASE_MODEL, adapter=SHIPPED_ADAPTER)
+
+
 app = FastAPI()
 app.mount("/pieces", StaticFiles(directory="web/pieces"), name="pieces")
-policy = Policy("models/best", adapter=None)
-coach = Coach()
+policy = load_policy()
+coach = Coach(BASE_MODEL)
 
 
 class MoveReq(BaseModel):
