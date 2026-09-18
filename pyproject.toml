@@ -1,0 +1,20 @@
+[project]
+name = "chesslm"
+version = "0.1.0"
+description = "A fine-tuned LLM that plays chess: LoRA on Apple Silicon, PUCT search with a learned value head, and a RAG coach"
+readme = "README.md"
+authors = [
+    { name = "Aryan G", email = "aryangaur926@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.141.1",
+    "fastembed>=0.8.0",
+    "mlx-lm>=0.31.3",
+    "python-chess>=1.999",
+    "uvicorn>=0.53.0",
+    "zstandard>=0.25.0",
+]
+
+[tool.uv]
+package = false

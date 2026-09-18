@@ -1,0 +1,14 @@
+# generated data and trained weights (large, reproducible)
+data*/
+adapters*/
+ckpt*/
+cmp*/
+runs/
+kb/*.tsv
+# logs and scratch
+*.log
+*.out
+runs_*.txt
+.venv/
+__pycache__/
+.DS_Store

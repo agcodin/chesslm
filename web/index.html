@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChessLM</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+<style>
+  :root { --bg:#f6f5f1; --panel:#fff; --ink:#1d1d1b; --muted:#6b6a65; --line:#e4e2dc; --accent:#3d6b4f; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#161614; --panel:#1f1f1c; --ink:#ecebe6; --muted:#9a998f; --line:#33322e; --accent:#7fb592; } }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui, sans-serif }
+  main { max-width:1040px; margin:0 auto; padding:24px 16px; display:grid; grid-template-columns:minmax(0,480px) 1fr; gap:24px }
+  @media (max-width:820px) { main { grid-template-columns:1fr } }
+  h1 { font-size:22px; margin:0 0 4px } .sub { color:var(--muted); margin:0 0 16px }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:16px }
+  .card h2 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:0 0 8px }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:12px }
+  button, select { font:inherit; padding:6px 12px; border-radius:6px; border:1px solid var(--line); background:var(--panel); color:var(--ink); cursor:pointer }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent) }
+  .bar { height:8px; background:var(--accent); border-radius:4px }
+  .cand { display:grid; grid-template-columns:60px 1fr 36px; gap:8px; align-items:center; font-variant-numeric:tabular-nums; margin:4px 0 }
+  .tag { display:inline-block; font-size:12px; padding:2px 8px; border-radius:99px; border:1px solid var(--line); margin:2px 4px 2px 0; color:var(--muted) }
+  #status { color:var(--muted) } #explain { white-space:pre-wrap }
+  #board .sel { box-shadow: inset 0 0 0 4px var(--accent) }
+  #board .dot::after { content:''; position:absolute; left:50%; top:50%; width:28%; height:28%; transform:translate(-50%,-50%);
+    border-radius:50%; background:rgba(61,107,79,.55); pointer-events:none }
+  #board .cap::after { content:''; position:absolute; inset:0; border:5px solid rgba(61,107,79,.55); border-radius:50%; pointer-events:none }
+  #board .square-55d63 { position:relative }
+</style>
+</head>
+<body>
+<main>
+  <section>
+    <h1>ChessLM</h1>
+    <p class="sub">A fine-tuned 1.5B LLM + tree search + retrieval-augmented coach, running locally on Apple Silicon.</p>
+    <div id="board"></div>
+    <div class="row">
+      <button class="primary" id="new">New game</button>
+      <select id="color"><option value="w">Play white</option><option value="b">Play black</option></select>
+      <select id="sims"><option>8</option><option selected>32</option><option>64</option></select><span id="status"></span>
+    </div>
+  </section>
+  <section>
+    <div class="card"><h2>Coach</h2><div id="opening"></div><div id="explain">Make a move to start.</div></div>
+    <div class="card"><h2>Search candidates</h2><div id="cands"></div></div>
+    <div class="card"><h2>Retrieved knowledge</h2><div id="facts"></div><div id="docs"></div></div>
+  </section>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+<script>
+const pieceTheme = '/pieces/{piece}.svg';  // cburnett set from Lichess, CC BY-SA 3.0
+const game = new Chess(); const moves = []; let busy = false;
+const $s = document.getElementById('status');
+const esc = t => String(t).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+let selected = null;
+
+const sq = name => $(`#board [data-square="${name}"]`);
+function clearHints() { $('#board [data-square]').removeClass('sel dot cap'); selected = null; }
+function showHints(from) {
+  clearHints(); selected = from; sq(from).addClass('sel');
+  for (const m of game.moves({square: from, verbose: true})) sq(m.to).addClass(m.captured ? 'cap' : 'dot');
+}
+function myTurn() {
+  if (busy) { $s.textContent = 'Still thinking — wait for the move'; return false; }
+  if (game.game_over()) { $s.textContent = 'Game over'; return false; }
+  return game.turn() === $('#color').val();
+}
+function tryMove(from, to) {
+  const before = {fen: game.fen(), moves: moves.slice()};
+  const m = game.move({from, to, promotion: 'q'});
+  if (!m) return false;
+  moves.push(from + to + (m.promotion || ''));
+  clearHints(); board.position(game.fen()); engineMove(before);
+  return true;
+}
+
+const board = Chessboard('board', { draggable:true, position:'start', pieceTheme,
+  onDragStart: (src, piece) => myTurn() && piece[0] === game.turn(),  // hints come from the mousedown handler
+  onDrop: (from, to) => {
+    if (from === to) return 'snapback';           // a click, handled by onclick below
+    if (!tryMove(from, to)) { $s.textContent = `${from}-${to} is not legal here`; return 'snapback'; }
+  },
+  onSnapEnd: () => board.position(game.fen()) });
+$(window).on('resize', () => board.resize());
+
+// Click-to-move. mousedown, not click: chessboard.js's drag handling swallows click on pieces.
+$('#board').on('mousedown', '[data-square]', function () {
+  const s2 = $(this).attr('data-square');
+  if (selected && s2 !== selected && tryMove(selected, s2)) return;
+  const piece = game.get(s2);
+  if (piece && myTurn() && piece.color === game.turn()) showHints(s2); else clearHints();
+});
+
+async function engineMove(before = {fen: game.fen(), moves: moves.slice()}) {
+  if (game.game_over()) { $s.textContent = 'Game over'; return; }
+  busy = true; $s.textContent = 'Thinking…';
+  try {
+    const r = await fetch('/api/move', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({moves, sims: +$('#sims').val()})});
+    if (!r.ok) throw new Error(await r.text());
+    const d = await r.json();
+    if (d.uci) { game.move({from:d.uci.slice(0,2), to:d.uci.slice(2,4), promotion:d.uci[4]}); moves.push(d.uci); board.position(game.fen()); }
+    $s.textContent = d.game_over ? `Game over: ${d.game_over}` : `Played ${d.san} in ${(d.think_ms/1000).toFixed(1)}s`;
+    $('#opening').html(d.opening ? `<span class="tag">${esc(d.opening)}</span>` : '');
+    $('#explain').text(d.explanation || '');
+    const max = Math.max(1, ...(d.candidates||[]).map(c => c.visits));
+    $('#cands').html((d.candidates||[]).map(c => `<div class="cand"><b>${esc(c.san)}</b><div class="bar" style="width:${100*c.visits/max}%"></div><span>${c.visits}</span></div>`).join(''));
+    $('#facts').html((d.facts||[]).map(f => `<span class="tag">${esc(f)}</span>`).join(''));
+    $('#docs').html((d.retrieved||[]).map(x => `<div class="cand"><b style="grid-column:span 2">${esc(x.title)}</b><span>${x.score.toFixed(2)}</span></div>`).join(''));
+  } catch (e) {
+    // Roll back to the last agreed position: if the client keeps a move the server never saw,
+    // every later move comes back illegal for the rest of the game.
+    game.load(before.fen); moves.length = 0; moves.push(...before.moves); board.position(game.fen());
+    $s.textContent = 'Error (move undone, try again): ' + e.message;
+  }
+  busy = false;
+}
+$('#new').on('click', () => { game.reset(); moves.length = 0; clearHints(); board.orientation($('#color').val()==='w'?'white':'black'); board.start();
+  $s.textContent=''; if ($('#color').val()==='b') engineMove(); });
+</script>
+</body>
+</html>
