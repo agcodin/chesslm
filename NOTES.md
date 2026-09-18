@@ -77,3 +77,46 @@ Still 0/2 in games vs Stockfish skill 0 at sims=8.
 Value ablation (2 games each, sims=16, vs SF skill 0): learned value 0/2, material value 0/2 — inconclusive.
 Next: measure with finer signal than win/loss (game length, blunder rate by Stockfish eval drop per move,
 or a weaker opponent such as SF depth 1 / a random mover) so learned-vs-material can actually be told apart.
+
+## Speed (#4) and rating (#1), night of 2026-09-17
+- priors() now batched: prompt KV cache copied per legal move, one pass per move length. 13x faster than the trie
+  (1.15s -> 0.087s/position), same top-3 moves in float32 (bf16 rounding explains the small diffs).
+- Merged adapter into models/fused_bf16. 8-bit and 4-bit were NOT faster (1.5B is not bandwidth-bound) and 4-bit lost
+  move accuracy (11.67% vs 13.33%), so full precision is the default. Per search step: ~0.085s (was ~1.2s).
+- rating.py: Elo ladder anchored to Stockfish UCI_Elo 1320 (random mover, SF depth 1, SF skill 0 @0.05s, SF 1320 @0.1s),
+  joint Bradley-Terry fit with one virtual draw per pairing, stratified bootstrap 90% interval, blunder rate (>=300cp loss).
+- Baseline (fused_bf16, learned value, sims 16): Elo 990 [851, 1147]; blunder rate 32.2%; ACPL 297;
+  vs random 6.5/10, vs SF depth1 0.5/10, vs SF skill0 0/10. Random mover's placement (906) is only bounded (it lost
+  every game), which biases ChessLM's estimate upward; treat as ~900-1000.
+- Value ablation, same ladder (fused_bf16, sims 16): MATERIAL eval Elo 1100 [947, 1258], blunder 29.0%, ACPL 265 vs
+  LEARNED eval Elo 990 [851, 1147], blunder 32.2%, ACPL 297. ~1.7 SE on blunder rate: suggestive, all metrics agree.
+  The learned value (corr 0.867 with SF) does not yet help search; likely static-eval error mid-exchange.
+  Added search(value_mode="blend") = mean of learned and material, and rating.py --value-mode; not yet rated.
+
+## Learning from its own games (#2), night of 2026-09-18
+- selfplay_data.py: ChessLM plays 200 games (half vs itself, half vs SF skill 0; sampled first 10 plies, then greedy).
+  selfplay_round.sh mixes those positions with fresh SF self-play data, keeps 35% of value rows, trains 3000 x 16.
+  (Batch 32 OOMed once other apps held unified memory; batch 16 peaks at 10.9GB.)
+- DAgger (own positions, Stockfish labels; 11,911 positions): top-1 13.33% (= baseline), value corr 0.779 (down from
+  0.867 on the SF-self-play test set, which no longer matches its training distribution).
+  Rating (learned value, sims 16): Elo 949 [823, 1091]; blunder 30.55% (baseline 32.15%); ACPL 279 (baseline 297);
+  vs random 7.5/10. Modest real gain in move quality; Elo change within noise (random anchor moved 906 -> 805).
+- Expert iteration (own positions, ChessLM search labels at sims 12, 4,000-position sample): search agreed with
+  Stockfish on only 16.6% of these positions. Offline: top-1 11.33% (down), value corr 0.842.
+  Rating: Elo 1023 [888, 1181]; BLUNDER 26.3% (baseline 32.2%, DAgger 30.6%); ACPL 240 (baseline 297).
+  ~6-point blunder drop is >3 SE: real. I predicted this would hurt and was wrong: the search's disagreements with
+  Stockfish are mostly rejections of moves its lookahead shows losing, so the policy learned to avoid blunders at
+  the cost of exact best-move agreement. Top-1 vs Stockfish is the wrong metric for this; blunder rate is right.
+  Promoted: models/best -> sp_expert.
+- Queue bug: a waiter using `pgrep -f name` matched its own command line and waited forever (lost ~30 min).
+  Drivers now wait on PIDs.
+- Blend eval on sp_expert (mean of learned + material): Elo 1073 [909, 1235] but blunder 33.5%, ACPL 280 (learned on
+  the same model: 26.3%, 240). Conflicting; blunder gap is large, Elo gap is noise -> keep learned. Plausible reason:
+  expert iteration trained the policy to agree with a learned-value search, so swapping the eval breaks that match.
+  The baseline's "material beats learned" therefore does not transfer to the expert-iteration model.
+- Expert iteration round 2 (from sp_expert, 2,000 search-labelled positions, search agreed with SF 13.0%):
+  top-1 12.0%, corr 0.827; Elo 990 [840, 1150], blunder 28.1%, ACPL 253. Not better than round 1 (26.3%);
+  ~1 SE, and half the labelled positions. sp_expert stays best (models/best -> sp_expert).
+- Replication rating of sp_expert running (runs/sp_expert/rating_repeat.json) to check the 26.3% headline.
+- Replication of sp_expert (independent games: 1,275 moves vs 1,324): blunder 27.3%, ACPL 249 (first run 26.3%, 240).
+  Pooled ~26.8% vs baseline 32.1%. Headline holds. play.py / server.py / rating.py now default to models/best.

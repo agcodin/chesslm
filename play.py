@@ -4,8 +4,8 @@ import chess, chess.engine
 from engine import Policy, search
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--model", default="Qwen/Qwen2.5-1.5B-Instruct")
-ap.add_argument("--adapter", default="adapters_best")
+ap.add_argument("--model", default="models/best", help="merged model; models/best links to the current best")
+ap.add_argument("--adapter", default="none")
 ap.add_argument("--games", type=int, default=4)
 ap.add_argument("--skill", type=int, default=0)
 ap.add_argument("--sims", type=int, default=0)

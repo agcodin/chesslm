@@ -12,3 +12,4 @@ runs_*.txt
 .venv/
 __pycache__/
 .DS_Store
+models/

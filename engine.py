@@ -7,7 +7,7 @@ import math
 import chess
 import mlx.core as mx
 from mlx_lm import load
-from mlx_lm.models.cache import make_prompt_cache, trim_prompt_cache
+from mlx_lm.models.cache import KVCache, make_prompt_cache, trim_prompt_cache
 from common import BUCKETS, letter_values, prompt, value_prompt
 
 PRUNE_LOGP = math.log(1e-4)  # below this, stop expanding a prefix; its moves share the floor
@@ -34,7 +34,36 @@ class Policy:
         return logits - mx.logsumexp(logits)
 
     def priors(self, board: chess.Board) -> dict:
-        """log p(move | position) for every legal move, via a trie walk over move characters."""
+        """log p(move | position) for every legal move, exactly, in one prompt pass plus one
+        batched pass per move length: the prompt's KV cache is copied once per candidate move."""
+        moves = [m.uci() for m in board.legal_moves]
+        cache = make_prompt_cache(self.model)
+        first = self._step(self.tok.encode(prompt(board)), cache)   # distribution over the first move token
+        out = {}
+        by_len = {}
+        for m in moves:
+            ids = self.tok.encode(" " + m)
+            by_len.setdefault(len(ids), []).append((m, ids))
+        for n, group in by_len.items():
+            toks = mx.array([ids for _, ids in group])               # (B, n)
+            b = len(group)
+            bcache = []
+            for layer in cache:
+                k, v = layer.state
+                c = KVCache()
+                c.state = (mx.repeat(k, b, axis=0), mx.repeat(v, b, axis=0))
+                bcache.append(c)
+            total = first[toks[:, 0]]
+            if n > 1:
+                logits = self.model(toks[:, :-1], cache=bcache)       # predicts tokens 1..n-1
+                logp = logits - mx.logsumexp(logits, axis=-1, keepdims=True)
+                total = total + mx.take_along_axis(logp, toks[:, 1:, None], axis=-1)[..., 0].sum(axis=1)
+            for (m, _), lp in zip(group, total.tolist()):
+                out[m] = lp
+        return out
+
+    def priors_trie(self, board: chess.Board) -> dict:
+        """Previous implementation (sequential trie walk with pruning); kept to cross-check priors()."""
         moves = [m.uci() for m in board.legal_moves]
         cache = make_prompt_cache(self.model)
         logp = self._step(self.tok.encode(prompt(board)), cache)
@@ -97,8 +126,13 @@ class Node:
         self.prior, self.children, self.n, self.w = prior, None, 0, 0.0
 
 
-def search(policy: Policy, board: chess.Board, sims=48, c_puct=1.5, top_k=8, learned_value=True):
-    """PUCT search; returns (best move, {move: visits}). Expansions keep only the top_k priors."""
+def search(policy: Policy, board: chess.Board, sims=48, c_puct=1.5, top_k=8, learned_value=True,
+           value_mode=None):
+    """PUCT search; returns (best move, {move: visits}). Expansions keep only the top_k priors.
+
+    value_mode: "learned", "material", or "blend" (mean of the two). Defaults from learned_value.
+    """
+    mode = value_mode or ("learned" if learned_value else "material")
     root = Node(1.0)
 
     def expand(node, b):
@@ -116,7 +150,10 @@ def search(policy: Policy, board: chess.Board, sims=48, c_puct=1.5, top_k=8, lea
                            + c_puct * kv[1].prior * sq / (1 + kv[1].n))
             b.push(mv)
             path.append(node)
-        v = evaluate(b, policy if learned_value else None)
+        if mode == "blend":
+            v = 0.5 * evaluate(b, policy) + 0.5 * evaluate(b)
+        else:
+            v = evaluate(b, policy if mode == "learned" else None)
         if not b.is_game_over(claim_draw=True):
             expand(node, b)
         # v is from the perspective of the side to move at the leaf; alternate sign going up.

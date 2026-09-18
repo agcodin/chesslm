@@ -4,7 +4,7 @@ from multiprocessing import Pool
 import chess, chess.engine
 from common import prompt, value_prompt, bucket_letter
 
-def worker(seed, games=70):
+def worker(seed, games=30):
     rng = random.Random(seed)
     eng = chess.engine.SimpleEngine.popen_uci("stockfish")
     eng.configure({"Threads": 1, "Hash": 32})

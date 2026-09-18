@@ -10,7 +10,7 @@ from coach import Coach
 
 app = FastAPI()
 app.mount("/pieces", StaticFiles(directory="web/pieces"), name="pieces")
-policy = Policy(adapter="adapters_best")
+policy = Policy("models/best", adapter=None)
 coach = Coach()
 
 
