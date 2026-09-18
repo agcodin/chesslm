@@ -1,0 +1,501 @@
+<meta charset="utf-8">
+<title>ChessLM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root {
+  --ground: #edf0ec;
+  --panel: #f8f9f6;
+  --ink: #18211d;
+  --ink-soft: #4a5751;
+  --rule: #cfd6cf;
+  --accent: #0e5c55;
+  --accent-soft: #d5e6e2;
+  --sq-light: #dfe5dc;
+  --sq-dark: #86a08f;
+  --sq-hi: #e8c77a;
+  --good: #2f7a4a;
+  --warn: #a16207;
+  --bad: #b42318;
+  --bad-soft: #f6dcd8;
+  --code-bg: #1d2723;
+  --code-ink: #dfe8e3;
+  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --body: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #111714; --panel: #18201c; --ink: #e3eae5; --ink-soft: #a3b1a9; --rule: #2d3833;
+    --accent: #5fc4b8; --accent-soft: #1d3531; --sq-light: #a8b8ad; --sq-dark: #5b7163; --sq-hi: #c9a24f;
+    --good: #6cc38b; --warn: #e0a84a; --bad: #f07b6c; --bad-soft: #3a1f1c; --code-bg: #0b100e; --code-ink: #d5e2dc;
+  }
+}
+:root[data-theme="dark"] {
+  --ground: #111714; --panel: #18201c; --ink: #e3eae5; --ink-soft: #a3b1a9; --rule: #2d3833;
+  --accent: #5fc4b8; --accent-soft: #1d3531; --sq-light: #a8b8ad; --sq-dark: #5b7163; --sq-hi: #c9a24f;
+  --good: #6cc38b; --warn: #e0a84a; --bad: #f07b6c; --bad-soft: #3a1f1c; --code-bg: #0b100e; --code-ink: #d5e2dc;
+}
+* { box-sizing: border-box; }
+body { background: var(--ground); color: var(--ink); font: 17px/1.62 var(--body); margin: 0; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 40px 80px; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.1; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(44px, 7vw, 76px); font-weight: 800; letter-spacing: -0.02em; }
+h2 { font-size: clamp(28px, 3.6vw, 38px); font-weight: 700; letter-spacing: -0.01em; }
+h3 { font-size: 20px; font-weight: 700; }
+p { margin: 0; }
+a { color: var(--accent); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible, select:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.eyebrow { font: 600 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+.mono { font-family: var(--mono); }
+.muted { color: var(--ink-soft); }
+.prose { max-width: 66ch; display: grid; gap: 14px; }
+section { margin-top: 88px; display: grid; gap: 22px; }
+
+/* hero */
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); gap: 48px; align-items: start; }
+.hero-text { display: grid; gap: 22px; padding-top: 8px; }
+.thesis { font-size: clamp(20px, 2.2vw, 24px); line-height: 1.45; max-width: 30ch; }
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 24px; border-top: 1px solid var(--rule); padding-top: 18px; }
+.stat b { display: block; font: 700 30px/1.05 var(--display); font-variant-numeric: tabular-nums; }
+.stat span { font-size: 14px; color: var(--ink-soft); line-height: 1.4; display: block; margin-top: 4px; }
+.links { display: flex; flex-wrap: wrap; gap: 10px; }
+.btn { font: 600 14px/1 var(--display); padding: 12px 16px; border-radius: 6px; border: 1px solid var(--ink); color: var(--ink); text-decoration: none; background: transparent; cursor: pointer; }
+.btn.primary { background: var(--ink); color: var(--ground); }
+
+/* replay */
+.replay { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 16px; display: grid; gap: 14px; }
+.replay-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.replay-top select { font: 14px var(--display); padding: 7px 10px; border-radius: 6px; border: 1px solid var(--rule); background: var(--ground); color: var(--ink); max-width: 100%; }
+.game-label { font-size: 14px; color: var(--ink-soft); }
+.board-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 14px; }
+.board { display: grid; grid-template-columns: repeat(8, 1fr); aspect-ratio: 1; width: 100%; max-width: 100%; border-radius: 4px; overflow: hidden; }
+.sq { position: relative; display: grid; place-items: center; }
+.sq.l { background: var(--sq-light); } .sq.d { background: var(--sq-dark); }
+.sq.hi::before { content: ""; position: absolute; inset: 0; background: var(--sq-hi); opacity: .55; }
+.sq img { position: relative; width: 88%; height: 88%; }
+.sq .coord { position: absolute; font: 600 9px/1 var(--mono); opacity: .7; color: var(--ink); }
+.sq .coord.f { right: 3px; bottom: 2px; } .sq .coord.r { left: 3px; top: 3px; }
+.sheet { font: 13px/1.5 var(--mono); overflow-y: auto; max-height: 100%; border-left: 1px solid var(--rule); padding-left: 10px; display: grid; grid-template-columns: 26px 1fr 1fr; align-content: start; column-gap: 4px; }
+.sheet .n { color: var(--ink-soft); }
+.sheet button { font: inherit; text-align: left; background: none; border: 0; padding: 1px 3px; border-radius: 3px; color: var(--ink); cursor: pointer; }
+.sheet button.me { font-weight: 600; }
+.sheet button.cur { background: var(--accent); color: var(--ground); }
+.sheet button.blunder::after { content: "??"; color: var(--bad); margin-left: 2px; }
+.sheet button.cur.blunder::after { color: var(--ground); }
+.controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.controls button { font: 600 14px var(--mono); min-width: 42px; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--rule); background: var(--ground); color: var(--ink); cursor: pointer; }
+.controls .ply { font: 13px var(--mono); color: var(--ink-soft); margin-left: auto; }
+.think { border-top: 1px solid var(--rule); padding-top: 12px; display: grid; gap: 10px; min-height: 172px; }
+.think-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.think-head b { font: 700 18px var(--display); }
+.verdict { font: 600 12px/1 var(--mono); padding: 5px 8px; border-radius: 99px; }
+.verdict.ok { background: var(--accent-soft); color: var(--accent); }
+.verdict.bad { background: var(--bad-soft); color: var(--bad); }
+.cands { display: grid; gap: 5px; }
+.cand { display: grid; grid-template-columns: 58px 1fr 30px; gap: 8px; align-items: center; font: 13px var(--mono); font-variant-numeric: tabular-nums; }
+.cand .bar { height: 10px; border-radius: 2px; background: var(--accent); opacity: .35; }
+.cand.pick .bar { opacity: 1; }
+.facts { display: flex; flex-wrap: wrap; gap: 6px; }
+.facts span { font-size: 13px; border: 1px solid var(--rule); border-radius: 99px; padding: 2px 9px; color: var(--ink-soft); }
+.evalline { font: 13px var(--mono); color: var(--ink-soft); }
+
+/* pipeline */
+.pipeline { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; border: 1px solid var(--rule); border-radius: 10px; background: var(--panel); overflow: hidden; }
+.stage { padding: 18px; display: grid; gap: 8px; align-content: start; border-right: 1px solid var(--rule); position: relative; }
+.stage:last-child { border-right: 0; }
+.stage .k { font: 600 12px var(--mono); color: var(--accent); }
+.stage p { font-size: 15px; line-height: 1.5; }
+.stage code, .prose code, td code { font: 13px var(--mono); background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; }
+.aside { font-size: 15px; color: var(--ink-soft); max-width: 70ch; }
+
+/* timeline */
+.timeline { display: grid; gap: 0; border-left: 2px solid var(--rule); margin-left: 6px; }
+.step { display: grid; gap: 6px; padding: 0 0 26px 22px; position: relative; max-width: 72ch; }
+.step::before { content: ""; position: absolute; left: -7px; top: 6px; width: 12px; height: 12px; border-radius: 50%; background: var(--ground); border: 2px solid var(--accent); }
+.step.key::before { background: var(--accent); }
+.step h3 { font-size: 18px; }
+.step p { font-size: 16px; }
+.step .num { font: 600 13px var(--mono); color: var(--ink-soft); }
+
+/* results */
+.charts { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 24px; }
+figure { margin: 0; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 18px; display: grid; gap: 12px; }
+figcaption { font-size: 14px; color: var(--ink-soft); line-height: 1.45; }
+figure h3 { font-size: 17px; }
+svg text { font-family: var(--mono); }
+.tablewrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; font-size: 15px; min-width: 620px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--rule); }
+th { font: 600 12px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); }
+td.num { font: 14px var(--mono); font-variant-numeric: tabular-nums; }
+tr.best td { background: var(--accent-soft); font-weight: 600; }
+tr:last-child td { border-bottom: 0; }
+
+/* findings */
+.findings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.finding { border-top: 3px solid var(--ink); padding-top: 12px; display: grid; gap: 8px; }
+.finding.wrong { border-top-color: var(--bad); }
+.finding .tag { font: 600 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); }
+.finding.wrong .tag { color: var(--bad); }
+.finding p { font-size: 16px; }
+
+/* install */
+.install { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 32px; align-items: start; }
+.req { display: grid; gap: 10px; font-size: 16px; }
+.req div { display: grid; grid-template-columns: 110px 1fr; gap: 12px; border-bottom: 1px solid var(--rule); padding-bottom: 10px; }
+.req dt, .req .k { font: 600 13px var(--mono); color: var(--ink-soft); }
+.code { background: var(--code-bg); color: var(--code-ink); border-radius: 10px; padding: 18px; font: 14px/1.7 var(--mono); overflow-x: auto; position: relative; }
+.code .c { color: #8aa399; }
+.code button { position: absolute; top: 10px; right: 10px; font: 600 12px var(--mono); padding: 6px 9px; border-radius: 5px; border: 1px solid #3a4944; background: #26322d; color: var(--code-ink); cursor: pointer; }
+.note { font-size: 15px; border-left: 3px solid var(--warn); padding: 4px 0 4px 14px; color: var(--ink-soft); }
+footer { margin-top: 96px; border-top: 1px solid var(--rule); padding-top: 18px; font-size: 14px; color: var(--ink-soft); display: grid; gap: 6px; }
+
+@media (max-width: 900px) {
+  .hero, .charts, .install { grid-template-columns: 1fr; }
+  .pipeline { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stage:nth-child(2) { border-right: 0; }
+  .stage:nth-child(-n+2) { border-bottom: 1px solid var(--rule); }
+}
+@media (max-width: 560px) {
+  body { font-size: 16px; }
+  .board-row { grid-template-columns: 1fr; }
+  .sheet { border-left: 0; padding-left: 0; border-top: 1px solid var(--rule); padding-top: 8px; max-height: 150px; }
+  .pipeline, .findings { grid-template-columns: 1fr; }
+  .stage { border-right: 0; border-bottom: 1px solid var(--rule); }
+  .stage:last-child { border-bottom: 0; }
+  .req div { grid-template-columns: 1fr; gap: 2px; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="hero-text">
+      <span class="eyebrow">A language model that plays chess</span>
+      <h1>ChessLM</h1>
+      <p class="thesis">A 1.5-billion-parameter language model, trained on one laptop, that learned to stop blundering by studying its own games.</p>
+      <div class="stats">
+        <div class="stat"><b>~1000</b><span>Elo, on a ladder anchored to Stockfish's calibrated 1320 setting</span></div>
+        <div class="stat"><b>32% → 27%</b><span>of moves were blunders, before and after learning from its own games</span></div>
+        <div class="stat"><b>13×</b><span>faster move scoring, all legal moves in one batched pass</span></div>
+        <div class="stat"><b>1 MacBook</b><span>every step, from data to training to rating, on an M5 Pro with 24 GB</span></div>
+      </div>
+      <div class="links">
+        <a class="btn primary" href="#play">Play it on your Mac</a>
+        <a class="btn" href="REPO_URL" rel="noopener">Source on GitHub</a>
+      </div>
+    </div>
+
+    <div class="replay" aria-label="Replay of a recorded ChessLM game">
+      <div class="replay-top">
+        <label class="game-label" for="gamePick">Recorded game</label>
+        <select id="gamePick"></select>
+      </div>
+      <div class="board-row">
+        <div class="board" id="board" role="img" aria-label="Chess board"></div>
+        <div class="sheet" id="sheet" aria-label="Scoresheet"></div>
+      </div>
+      <div class="controls">
+        <button id="first" aria-label="First move">|◀</button>
+        <button id="prev" aria-label="Previous move">◀</button>
+        <button id="play" aria-label="Play through the game">Play</button>
+        <button id="next" aria-label="Next move">▶</button>
+        <button id="last" aria-label="Last move">▶|</button>
+        <span class="ply" id="plyLabel"></span>
+      </div>
+      <div class="think" id="think" aria-live="polite"></div>
+    </div>
+  </header>
+
+  <section id="how">
+    <span class="eyebrow">How it plays</span>
+    <h2>A language model that reads a chess position and writes a move</h2>
+    <div class="prose">
+      <p>ChessLM is Qwen2.5-1.5B, fine-tuned with LoRA on Apple's MLX framework. It never sees a picture of a board: every position arrives as a line of text in Forsyth–Edwards Notation, and the model answers in text. Around that model sits a small search, the same selection rule AlphaZero uses, which lets it look a few moves ahead before committing.</p>
+    </div>
+    <div class="pipeline">
+      <div class="stage"><span class="k">Position</span><h3>Read the board as text</h3><p>The prompt is just <code>FEN: … Best move:</code>, about 60 tokens. An early version listed every legal move and was seven times longer; cutting it made training usable.</p></div>
+      <div class="stage"><span class="k">Moves</span><h3>Score every legal move</h3><p>The position is encoded once, its KV cache copied for each candidate, and all moves scored in one batch. It can never play an illegal move.</p></div>
+      <div class="stage"><span class="k">Judgement</span><h3>Rate positions</h3><p>A second prompt, <code>FEN: … Eval:</code>, makes the same model rate a position as one of 21 letters from <code>a</code> (lost) to <code>u</code> (won). One pass gives a full distribution.</p></div>
+      <div class="stage"><span class="k">Search</span><h3>Look ahead, then choose</h3><p>PUCT search expands the likeliest moves, rates where they lead, and plays the move it visited most. The replay above shows those visit counts.</p></div>
+    </div>
+    <p class="aside">A retrieval-augmented coach explains each move in the local app: it names the opening from Lichess's opening database, computes facts about the move (captures, checks, forks, pins, hanging pieces), retrieves matching chess principles by vector search, and has the base model explain using only those facts.</p>
+  </section>
+
+  <section id="training">
+    <span class="eyebrow">How it learned</span>
+    <h2>From copying Stockfish to learning from its own games</h2>
+    <div class="timeline">
+      <div class="step"><span class="num">Stage 1</span><h3>Imitate Stockfish</h3><p>Stockfish played itself with 15% random moves mixed in, so positions looked like imperfect human play. Each position was labelled with Stockfish's best move. Agreement with Stockfish rose from 6.5% for the untrained model to 11.75%. A 3B model did no better (9.5% against the 1.5B's 9.75% on identical data) and trained three times slower.</p></div>
+      <div class="step"><span class="num">Stage 2</span><h3>Learn to judge positions</h3><p>The same positions were labelled with Stockfish's evaluation too. A 50/50 mix of move and evaluation examples dropped move accuracy to 9.0%, because the new task crowded out the old one. Keeping only 20–35% of the evaluation examples fixed it: 12.67% move accuracy and a 0.87 correlation with Stockfish's evaluations.</p></div>
+      <div class="step"><span class="num">Stage 3</span><h3>Measure real strength</h3><p>Stockfish's rating limiter starts at 1320, above ChessLM, so I built a ladder beneath it: a random mover, one-ply Stockfish and Stockfish skill 0, all placed on one scale by playing each other. Blunder rate turned out to be the sharper instrument: across about 1,200 moves per run it separates versions that win/loss cannot.</p></div>
+      <div class="step key"><span class="num">Stage 4</span><h3>Learn from its own games</h3><p>ChessLM played 200 games, and in each position it reached, its own search's choice became the training target: expert iteration, the core idea behind AlphaZero. A second version (DAgger) used Stockfish's labels on those same positions. Expert iteration won clearly: blunders fell from 32% to about 27%, and a second, independent rating reproduced the result.</p></div>
+    </div>
+  </section>
+
+  <section id="results">
+    <span class="eyebrow">Results</span>
+    <h2>What changed, measured</h2>
+    <div class="charts">
+      <figure>
+        <h3>Blunder rate by version</h3>
+        <div id="blunderChart"></div>
+        <figcaption>Share of ChessLM's moves losing at least 300 centipawns against Stockfish's best move (depth 10), over 1,000–1,300 moves per version, 16 search simulations. Lower is better.</figcaption>
+      </figure>
+      <figure>
+        <h3>Move agreement with Stockfish</h3>
+        <div id="accChart"></div>
+        <figcaption>Top-1 agreement on held-out positions (last two measured with exact batched move scoring). Expert iteration lowers this number while improving play: it trades some exact best moves for far fewer losing ones.</figcaption>
+      </figure>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Version</th><th>Elo (90% interval)</th><th>Blunder rate</th><th>Avg centipawn loss</th></tr></thead>
+        <tbody>
+          <tr><td>Supervised on Stockfish data</td><td class="num">990 (851–1147)</td><td class="num">32.1%</td><td class="num">297</td></tr>
+          <tr><td>+ DAgger: own positions, Stockfish labels</td><td class="num">949 (823–1091)</td><td class="num">30.6%</td><td class="num">279</td></tr>
+          <tr class="best"><td>+ Expert iteration: own positions, own search labels</td><td class="num">1023 (888–1181)</td><td class="num">26.3%</td><td class="num">240</td></tr>
+          <tr><td>Same model, independent re-rating</td><td class="num">1023 (888–1181)</td><td class="num">27.3%</td><td class="num">249</td></tr>
+          <tr><td>Expert iteration, second round</td><td class="num">990 (840–1150)</td><td class="num">28.1%</td><td class="num">253</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="aside">The Elo intervals overlap; the blunder-rate improvement is several standard errors wide and reproduced, so it is the result I stand behind. ChessLM has not yet beaten Stockfish's 1320 setting.</p>
+  </section>
+
+  <section id="findings">
+    <span class="eyebrow">Findings</span>
+    <h2>What the experiments taught</h2>
+    <div class="findings">
+      <div class="finding wrong"><span class="tag">I predicted this wrong</span><h3>Copying its own search beat copying Stockfish</h3><p>Its search agreed with Stockfish in only 17% of positions, so I expected training on those choices to hurt. Instead the disagreements were mostly the search rejecting moves it could see were losing. The model learned to stop blundering, which matters far more at 1000 Elo than finding the exact best move.</p></div>
+      <div class="finding"><span class="tag">Measurement</span><h3>The obvious metric was the wrong one</h3><p>Move agreement with Stockfish went down as play got better. Blunder rate, measured over a thousand moves, tracked real strength; a 30-game rating was too noisy to separate versions.</p></div>
+      <div class="finding"><span class="tag">Scale</span><h3>Prompt length mattered more than model size</h3><p>Shortening the prompt from ~450 to ~60 tokens did more than doubling the model. And 4-bit or 8-bit compression gave no speedup: at 1.5B parameters the model isn't limited by memory bandwidth.</p></div>
+      <div class="finding"><span class="tag">Search</span><h3>A better evaluator isn't automatically a better search</h3><p>Before expert iteration, a plain material count beat the learned evaluation inside the search. After it, the learned evaluation won clearly, plausibly because the model had been trained to agree with a search that used it.</p></div>
+    </div>
+  </section>
+
+  <section id="play">
+    <span class="eyebrow">Play it yourself</span>
+    <h2>Run ChessLM on your own Mac</h2>
+    <div class="install">
+      <div class="prose">
+        <p>The trained model ships in the repository as a 21 MB adapter. The launcher downloads the base model on first run, then opens a board in your browser where you can play either colour, click a piece to see its legal moves, and read the search candidates and the coach's explanation for every reply.</p>
+        <dl class="req">
+          <div><dt>Hardware</dt><dd>A Mac with Apple Silicon (M1 or later). The model runs on MLX, which is Apple-only.</dd></div>
+          <div><dt>Memory</dt><dd>16 GB recommended. The app loads the 1.5B model twice, once to play and once for the coach, roughly 7 GB.</dd></div>
+          <div><dt>Software</dt><dd><a href="https://docs.astral.sh/uv/" rel="noopener">uv</a> and git.</dd></div>
+          <div><dt>First run</dt><dd>A few GB of downloads (mostly the 3 GB base model), a few minutes. Later starts are much faster.</dd></div>
+          <div><dt>Speed</dt><dd>About 4 seconds per move at 16 search simulations on an M5 Pro, coach included. Deeper settings take longer.</dd></div>
+        </dl>
+        <p class="note">Not on a Mac? The replay at the top of this page is a real recorded game, with the search candidates, evaluation and Stockfish's verdict for every ChessLM move.</p>
+      </div>
+      <div class="code" id="installCode"><button type="button" id="copyBtn">Copy</button><span class="c"># install uv if you don't have it</span>
+brew install uv
+
+<span class="c"># get the code and the trained adapter</span>
+git clone REPO_URL.git
+cd chesslm
+
+<span class="c"># set up, download the base model, open the board</span>
+./play.sh</div>
+    </div>
+  </section>
+
+  <footer>
+    <p>Built by Aryan G. Base model: Qwen2.5-1.5B-Instruct (Apache 2.0). Opening names: lichess-org/chess-openings (CC0). Piece images: the cburnett set from Lichess, CC BY-SA 3.0.</p>
+    <p>Every number on this page comes from runs logged in the repository's NOTES.md.</p>
+  </footer>
+</div>
+
+<script>
+const GAMES = __GAMES__;
+const PIECES = __PIECES__;
+const FEATURED = 2;
+const LABELS = [
+  "ChessLM white · lost · 31 moves",
+  "ChessLM black · lost · 34 moves",
+  "ChessLM white · lost after 44 moves · best played",
+  "ChessLM black · drawn by repetition while losing",
+];
+const NOTES = [
+  "",
+  "",
+  "ChessLM's best-played game: 5 blunders in 44 moves, a long fight against Stockfish skill 0 (about 1320 Elo).",
+  "A draw, but not a good one: ChessLM was down 28 points of material and Stockfish skill 0 repeated checks into a threefold repetition.",
+];
+
+const $ = id => document.getElementById(id);
+let gi = FEATURED, ply = 0, timer = null;
+
+const pick = $("gamePick");
+GAMES.forEach((g, i) => {
+  const o = document.createElement("option");
+  o.value = i; o.textContent = LABELS[i] || `Game ${i + 1}`;
+  pick.appendChild(o);
+});
+pick.value = gi;
+
+function parseFen(fen) {
+  const rows = fen.split(" ")[0].split("/");
+  const grid = [];
+  for (const row of rows) {
+    const r = [];
+    for (const ch of row) {
+      if (/\d/.test(ch)) for (let k = 0; k < +ch; k++) r.push(null);
+      else r.push((ch === ch.toUpperCase() ? "w" : "b") + ch.toUpperCase());
+    }
+    grid.push(r);
+  }
+  return grid; // grid[0] is rank 8
+}
+
+function drawBoard() {
+  const g = GAMES[gi];
+  const fen = ply === 0 ? "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" : g.plies[ply - 1].fen;
+  const grid = parseFen(fen);
+  const flip = g.chesslm === "black";
+  const last = ply > 0 ? g.plies[ply - 1].uci : null;
+  const hi = last ? [last.slice(0, 2), last.slice(2, 4)] : [];
+  const b = $("board");
+  b.innerHTML = "";
+  for (let vr = 0; vr < 8; vr++) {
+    for (let vc = 0; vc < 8; vc++) {
+      const r = flip ? 7 - vr : vr, c = flip ? 7 - vc : vc;
+      const name = "abcdefgh"[c] + (8 - r);
+      const d = document.createElement("div");
+      d.className = "sq " + ((r + c) % 2 === 0 ? "l" : "d") + (hi.includes(name) ? " hi" : "");
+      const p = grid[r][c];
+      if (p) { const img = document.createElement("img"); img.src = PIECES[p]; img.alt = p; d.appendChild(img); }
+      if (vr === 7) { const s = document.createElement("span"); s.className = "coord f"; s.textContent = "abcdefgh"[c]; d.appendChild(s); }
+      if (vc === 0) { const s = document.createElement("span"); s.className = "coord r"; s.textContent = 8 - r; d.appendChild(s); }
+      b.appendChild(d);
+    }
+  }
+}
+
+function drawSheet() {
+  const g = GAMES[gi], s = $("sheet");
+  s.innerHTML = "";
+  for (let i = 0; i < g.plies.length; i += 2) {
+    const n = document.createElement("span"); n.className = "n"; n.textContent = i / 2 + 1 + ".";
+    s.appendChild(n);
+    for (const j of [i, i + 1]) {
+      const p = g.plies[j];
+      if (!p) { s.appendChild(document.createElement("span")); continue; }
+      const btn = document.createElement("button");
+      btn.textContent = p.san;
+      btn.className = (p.by === "chesslm" ? "me" : "") + (p.loss >= 300 ? " blunder" : "") + (j + 1 === ply ? " cur" : "");
+      btn.setAttribute("aria-label", `Move ${j + 1}: ${p.san}${p.by === "chesslm" ? " by ChessLM" : " by Stockfish"}`);
+      btn.onclick = () => { stop(); ply = j + 1; render(); };
+      s.appendChild(btn);
+    }
+  }
+  const cur = s.querySelector(".cur");
+  if (cur) cur.scrollIntoView({ block: "nearest" });
+}
+
+function drawThink() {
+  const g = GAMES[gi], t = $("think");
+  // Show the most recent ChessLM decision at or before this point.
+  let k = ply - 1;
+  while (k >= 0 && g.plies[k].by !== "chesslm") k--;
+  if (k < 0) {
+    t.innerHTML = `<div class="think-head"><b>${g.opening ? g.opening.replace(/^[A-E]\d\d /, "") : "Opening"}</b><span class="evalline">Result ${g.result}</span></div>
+      <p class="muted">${NOTES[gi] || "Step through the game to see how ChessLM chose each move."} Use the arrows or click any move on the scoresheet.</p>`;
+    return;
+  }
+  const p = g.plies[k], max = Math.max(...p.candidates.map(c => c.visits));
+  const blunder = p.loss >= 300;
+  const evalTxt = p.value >= 0 ? `+${p.value.toFixed(2)}` : p.value.toFixed(2);
+  t.innerHTML = `
+    <div class="think-head">
+      <b>ChessLM played ${p.san}</b>
+      <span class="verdict ${blunder ? "bad" : "ok"}">${blunder ? `blunder · lost ${p.loss} cp` : `Stockfish: −${p.loss} cp`}</span>
+    </div>
+    <div class="cands">${p.candidates.map(c => `
+      <div class="cand ${c.san === p.san ? "pick" : ""}"><span>${c.san}</span><div class="bar" style="width:${(100 * c.visits / max).toFixed(0)}%"></div><span>${c.visits}</span></div>`).join("")}
+    </div>
+    <div class="evalline">Search visits out of 16 · its own evaluation before moving: ${evalTxt} (−1 lost, +1 won)</div>
+    ${p.facts.length ? `<div class="facts">${p.facts.map(f => `<span>${f}</span>`).join("")}</div>` : ""}`;
+}
+
+function render() {
+  const g = GAMES[gi];
+  ply = Math.max(0, Math.min(ply, g.plies.length));
+  drawBoard(); drawSheet(); drawThink();
+  $("plyLabel").textContent = `${ply} / ${g.plies.length}`;
+}
+
+function stop() { if (timer) { clearInterval(timer); timer = null; $("play").textContent = "Play"; } }
+$("first").onclick = () => { stop(); ply = 0; render(); };
+$("prev").onclick = () => { stop(); ply--; render(); };
+$("next").onclick = () => { stop(); ply++; render(); };
+$("last").onclick = () => { stop(); ply = GAMES[gi].plies.length; render(); };
+$("play").onclick = () => {
+  if (timer) return stop();
+  if (ply >= GAMES[gi].plies.length) ply = 0;
+  $("play").textContent = "Pause";
+  timer = setInterval(() => { ply++; render(); if (ply >= GAMES[gi].plies.length) stop(); }, 1100);
+};
+pick.onchange = () => { stop(); gi = +pick.value; ply = 0; render(); };
+document.addEventListener("keydown", e => {
+  if (e.target.closest && e.target.closest("select")) return;
+  if (e.key === "ArrowRight") { stop(); ply++; render(); }
+  if (e.key === "ArrowLeft") { stop(); ply--; render(); }
+});
+
+// Open on an informative moment of the featured game: ChessLM's 10th move.
+(function () {
+  const g = GAMES[gi]; let seen = 0;
+  for (let i = 0; i < g.plies.length; i++) if (g.plies[i].by === "chesslm" && ++seen === 10) { ply = i + 1; break; }
+})();
+render();
+
+// Charts: one scale per chart, colours from the theme tokens.
+function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function barChart(el, rows, opts) {
+  const W = 520, rowH = 38, top = 8, left = 196, right = 58, H = top + rows.length * rowH + 26;
+  const x = v => left + (v - opts.min) / (opts.max - opts.min) * (W - left - right);
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${opts.label}">`;
+  for (const t of opts.ticks) {
+    s += `<line x1="${x(t)}" x2="${x(t)}" y1="${top}" y2="${H - 22}" stroke="${cssVar("--rule")}" />`;
+    s += `<text x="${x(t)}" y="${H - 6}" font-size="11" text-anchor="middle" fill="${cssVar("--ink-soft")}">${t}${opts.unit}</text>`;
+  }
+  rows.forEach((r, i) => {
+    const y = top + i * rowH;
+    const fill = r.hi ? cssVar("--accent") : cssVar("--sq-dark");
+    s += `<text x="${left - 10}" y="${y + 21}" font-size="12" text-anchor="end" fill="${cssVar("--ink")}">${r.label}</text>`;
+    s += `<rect x="${x(opts.min)}" y="${y + 8}" width="${Math.max(2, x(r.v) - x(opts.min))}" height="20" rx="2" fill="${fill}" />`;
+    s += `<text x="${x(r.v) + 6}" y="${y + 22}" font-size="12" font-weight="600" fill="${cssVar("--ink")}">${r.v}${opts.unit}</text>`;
+  });
+  el.innerHTML = s + "</svg>";
+}
+function drawCharts() {
+  barChart($("blunderChart"), [
+    { label: "Supervised", v: 32.1 },
+    { label: "+ DAgger", v: 30.6 },
+    { label: "+ Expert iteration", v: 26.3, hi: true },
+    { label: "  independent re-rating", v: 27.3, hi: true },
+    { label: "Expert iteration, round 2", v: 28.1 },
+  ], { min: 0, max: 35, ticks: [0, 10, 20, 30], unit: "%", label: "Blunder rate by version" });
+  barChart($("accChart"), [
+    { label: "Untrained", v: 6.5 },
+    { label: "Moves only", v: 11.75 },
+    { label: "+ evaluation, 50/50 mix", v: 9.0 },
+    { label: "+ evaluation, thinned mix", v: 13.33 },
+    { label: "+ Expert iteration", v: 11.33, hi: true },
+  ], { min: 0, max: 15, ticks: [0, 5, 10, 15], unit: "%", label: "Move agreement with Stockfish by version" });
+}
+drawCharts();
+try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { drawCharts(); render(); }); } catch (e) {}
+new MutationObserver(drawCharts).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+$("copyBtn").onclick = async () => {
+  const text = "brew install uv\ngit clone REPO_URL.git\ncd chesslm\n./play.sh";
+  try { await navigator.clipboard.writeText(text); $("copyBtn").textContent = "Copied"; }
+  catch (e) { $("copyBtn").textContent = "Select and copy"; }
+  setTimeout(() => { $("copyBtn").textContent = "Copy"; }, 1800);
+};
+</script>
