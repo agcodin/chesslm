@@ -2,6 +2,10 @@
 
 A small language model taught to play chess, trained entirely on a laptop.
 
+**Project page, with a replay of a real game and its search visible:** https://agcodin.github.io/chesslm/
+
+**Play it on an Apple Silicon Mac:** `git clone https://github.com/agcodin/chesslm && cd chesslm && ./play.sh`
+
 ChessLM fine-tunes Qwen2.5-1.5B with LoRA on Apple Silicon (MLX), then plays through a
 PUCT tree search in which the same model supplies both the move candidates and a learned
 evaluation of each position. A retrieval-augmented coach explains its moves, and a web board
@@ -144,6 +148,8 @@ move or value quality improves. `NOTES.md` is the full lab notebook.
 | `engine.py` | Batched move scoring, learned value, PUCT search |
 | `selfplay_data.py`, `selfplay_round.sh` | Positions from its own games, labelled by Stockfish or its own search; one full train-and-rate round |
 | `rating.py` | Elo ladder, bootstrap interval, blunder rate |
+| `play.sh`, `weights/` | One-command local launcher; the trained 21 MB LoRA adapter |
+| `record_game.py`, `docs/` | Annotated game recorder; the project page (`python3 docs/build.py`), served by GitHub Pages |
 | `coach.py` | Opening lookup, move facts, vector retrieval, explanations |
 | `server.py`, `web/` | FastAPI backend and the playable board |
 | `eval_acc.py`, `eval_value.py`, `play.py` | Move accuracy, value correlation, games vs Stockfish |
