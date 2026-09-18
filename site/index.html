@@ -1,4 +1,5 @@
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>ChessLM</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -38,6 +39,8 @@
   --good: #6cc38b; --warn: #e0a84a; --bad: #f07b6c; --bad-soft: #3a1f1c; --code-bg: #0b100e; --code-ink: #d5e2dc;
 }
 * { box-sizing: border-box; }
+/* Single-column grids: cap the track at the container, or it grows to its widest child on phones. */
+section, .hero-text, .replay, .think, .prose, .step, .finding, figure { grid-template-columns: minmax(0, 1fr); }
 body { background: var(--ground); color: var(--ink); font: 17px/1.62 var(--body); margin: 0; }
 .wrap { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 40px 80px; }
 h1, h2, h3 { font-family: var(--display); line-height: 1.1; text-wrap: balance; margin: 0; }
@@ -67,14 +70,14 @@ section { margin-top: 88px; display: grid; gap: 22px; }
 /* replay */
 .replay { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 16px; display: grid; gap: 14px; }
 .replay-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
-.replay-top select { font: 14px var(--display); padding: 7px 10px; border-radius: 6px; border: 1px solid var(--rule); background: var(--ground); color: var(--ink); max-width: 100%; }
+.replay-top select { flex: 1 1 200px; min-width: 0; font: 14px var(--display); padding: 7px 10px; border-radius: 6px; border: 1px solid var(--rule); background: var(--ground); color: var(--ink); max-width: 100%; }
 .game-label { font-size: 14px; color: var(--ink-soft); }
 .board-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 14px; }
-.board { display: grid; grid-template-columns: repeat(8, 1fr); aspect-ratio: 1; width: 100%; max-width: 100%; border-radius: 4px; overflow: hidden; }
-.sq { position: relative; display: grid; place-items: center; }
+.board { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: repeat(8, minmax(0, 1fr)); aspect-ratio: 1; width: 100%; max-width: 100%; border-radius: 4px; overflow: hidden; }
+.sq { position: relative; min-width: 0; min-height: 0; aspect-ratio: 1; }
 .sq.l { background: var(--sq-light); } .sq.d { background: var(--sq-dark); }
 .sq.hi::before { content: ""; position: absolute; inset: 0; background: var(--sq-hi); opacity: .55; }
-.sq img { position: relative; width: 88%; height: 88%; }
+.sq img { position: absolute; inset: 6%; width: 88%; height: 88%; }  /* out of flow: pieces can't size their square */
 .sq .coord { position: absolute; font: 600 9px/1 var(--mono); opacity: .7; color: var(--ink); }
 .sq .coord.f { right: 3px; bottom: 2px; } .sq .coord.r { left: 3px; top: 3px; }
 .sheet { font: 13px/1.5 var(--mono); overflow-y: auto; max-height: 100%; border-left: 1px solid var(--rule); padding-left: 10px; display: grid; grid-template-columns: 26px 1fr 1fr; align-content: start; column-gap: 4px; }
@@ -153,14 +156,14 @@ tr:last-child td { border-bottom: 0; }
 footer { margin-top: 96px; border-top: 1px solid var(--rule); padding-top: 18px; font-size: 14px; color: var(--ink-soft); display: grid; gap: 6px; }
 
 @media (max-width: 900px) {
-  .hero, .charts, .install { grid-template-columns: 1fr; }
+  .hero, .charts, .install { grid-template-columns: minmax(0, 1fr); }  /* plain 1fr grows to fit its widest child */
   .pipeline { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stage:nth-child(2) { border-right: 0; }
   .stage:nth-child(-n+2) { border-bottom: 1px solid var(--rule); }
 }
 @media (max-width: 560px) {
   body { font-size: 16px; }
-  .board-row { grid-template-columns: 1fr; }
+  .board-row { grid-template-columns: minmax(0, 1fr); }
   .sheet { border-left: 0; padding-left: 0; border-top: 1px solid var(--rule); padding-top: 8px; max-height: 150px; }
   .pipeline, .findings { grid-template-columns: 1fr; }
   .stage { border-right: 0; border-bottom: 1px solid var(--rule); }
