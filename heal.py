@@ -11,6 +11,7 @@ low-rank architecture and parameter count it had before healing -- the recovery 
 inference time.
 """
 import argparse, json, math, random, time
+from functools import partial
 from pathlib import Path
 
 import mlx.core as mx
@@ -110,6 +111,7 @@ def main():
 
     random.seed(0)
     model, tok = C.load_fused(BASE, a.adapter)
+    dense_params = C.param_count(model)
     mods = C.linear_modules(model)
     ranks = {p: C.rank_for_keep(*mods[p].weight.shape, a.keep) for p in mods}
     scales = None
@@ -127,7 +129,9 @@ def main():
     opt = optim.AdamW(learning_rate=a.lr)
     state = [model.state, opt.state]
 
-    @mx.compile
+    # The step mutates model and optimizer state, so compile has to be told about both or it
+    # will trace a graph whose outputs are never realised.
+    @partial(mx.compile, inputs=state, outputs=state)
     def step(x, y, m):
         lv, grads = nn.value_and_grad(model, loss_fn)(model, x, y, m)
         opt.update(model, grads)
@@ -156,7 +160,10 @@ def main():
     fuse_lora(model)
     out = a.save or f"models/healed_{a.arm}_keep{a.keep:g}"
     C.save_compressed(model, tok, out, BASE, ranks,
-                      {"arm": a.arm, "keep": a.keep, "healed_iters": a.iters,
+                      {"arm": "healed", "base_arm": a.arm, "keep": a.keep,
+                       "healed_iters": a.iters, "params": C.param_count(model),
+                       "dense_params": dense_params,
+                       "shrink": round(1 - C.param_count(model) / dense_params, 4),
                        "final_loss": round(sum(run[-25:]) / len(run[-25:]), 4)})
     print(f"saved {out}  params {C.param_count(model)/1e6:.1f}M", flush=True)
 

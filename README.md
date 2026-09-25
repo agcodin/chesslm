@@ -95,6 +95,84 @@ What the experiments showed:
 - **Compression did not speed it up.** 8-bit and 4-bit versions were no faster at 1.5B parameters
   (the model is not memory-bandwidth-bound at this size) and 4-bit lost accuracy.
 - **Not yet winning against Stockfish's 1320 setting**: one draw in 30 games across all versions.
+## Compressing it
+
+Compression results are almost always reported as perplexity: shrink the model, show that
+perplexity barely moved, claim the capability survived. Perplexity averages over every token, so a
+model can keep its fluency — the grammar, the common words, the shape of the output — while losing
+the narrow skill it was actually trained for. Everyone knows this is a weakness. It is hard to
+demonstrate because "capability" on general benchmarks is noisy and contaminated.
+
+A chess model makes it measurable. There is a ground truth that cannot be bluffed, so the same
+compressed model can be scored on four axes at once, ordered from surface competence to real skill:
+
+| axis | what it asks |
+|---|---|
+| **perplexity** | the usual metric: token-level loss on held-out move completions |
+| **legal-move rate** | decode freely, with the legality trie switched off: is the output even a legal move? |
+| **top-1 agreement** | with legality enforced, does it pick Stockfish's move? |
+| **value correlation** | does its learned evaluation still track Stockfish's? |
+
+The claim worth testing is that these do not fall together.
+
+![How four metrics respond to the same compression](docs/figures/decay_light.png)
+
+### What happened
+
+**Quantisation is nearly free, and is the baseline to beat.** 8-bit is indistinguishable from the
+original on all four axes. 4-bit costs 1% of perplexity and about 10% of relative skill, at 0.87 GB
+against 3.09 GB. Nothing else here comes close to that trade.
+
+**Low-rank factorisation without repair is catastrophic, far earlier than expected.** Truncating
+the MLP projections by rank — the family of methods behind "quantum-inspired" tensor-network
+compression — destroys the model at ratios that sound harmless. Removing just 7% of the parameters
+raises perplexity 3.2x and takes the unconstrained legal-move rate from 65% to **zero**. Not
+degraded: the model stops emitting legal chess moves at all. Plain SVD minimises error in the
+weights, which is simply the wrong objective.
+
+**Calibrating on real activations is worth one to two orders of magnitude.** Weighting the
+factorisation by how strongly each input channel actually fires on chess positions, then unscaling
+— ASVD, calibrated in-domain — changes the same 23%-smaller model from perplexity 280.6 to 9.8. It
+is the difference between rubble and something recognisable, and it costs 32 forward passes.
+
+**The divergence is real, and legality is where it shows.** At 15% smaller with activation-aware
+SVD, perplexity is 1.83x — a number you could talk yourself into shipping — and value correlation
+still retains 87% of the original. The legal-move rate has fallen from 65% to 19%, with
+non-overlapping Wilson intervals. Two of the four metrics say the model is fine. The model cannot
+reliably produce a legal chess move.
+
+That is the whole argument in one row. A compression method reporting only perplexity here would
+report a mild, acceptable cost.
+
+### What did not work, and what this does not show
+
+- **Top-1 agreement is too noisy to carry the claim, and I expected it to be the headline.** The
+  test set gives a Wilson interval of roughly ±5 points at n=120 and ±2.5 at n=800, against a
+  baseline of only 15.5%, and the legality trie puts a floor of about 4–6% under even a destroyed
+  model. The dynamic range is too small. Legality and value correlation do the work instead. Every
+  proportion in `runs/compress/table.md` carries its interval, and the ones that are noise are
+  labelled as noise.
+- **Healing is the expensive part, and a short run does not buy it.** Folding LoRA adapters onto
+  the factors and finetuning for 400 steps moved perplexity from 9.84 to 8.70 and left skill flat.
+  That is 1,600 examples against the 64,000 the original adapter saw; the loss was still at 1.57
+  where the finetune reached ~0.6. This is the step compression vendors spend their compute on, and
+  the result here is a measurement of undertraining, not of the method's ceiling.
+- **This is one model on one task.** A 1.5B model fine-tuned for a narrow skill is exactly the case
+  where compression should hurt most: there is less redundancy to give up than in a general model.
+  The direction of the effect should generalise; the magnitudes should not be assumed to.
+- **No claim to beat quantisation.** It doesn't. 4-bit quantisation is better than every
+  factorisation here at every ratio. The point of the study is what the metrics hide, not a new
+  state of the art.
+
+### Reproducing it
+
+```bash
+./compress_run.sh
+```
+
+Roughly two to three hours on an M-series Mac. Stages run as separate processes because MLX holds
+GPU memory for the life of a process, and running an eval next to training has OOM'd this machine.
+Results land in `runs/compress/` as JSON lines, figures in `docs/figures/`.
 
 ## Running it
 
@@ -154,6 +232,11 @@ move or value quality improves. `NOTES.md` is the full lab notebook.
 | `server.py`, `web/` | FastAPI backend and the playable board |
 | `eval_acc.py`, `eval_value.py`, `play.py` | Move accuracy, value correlation, games vs Stockfish |
 | `phase3.sh` | Unattended train / evaluate / promote loop |
+| `compress.py` | Low-rank factorisation of the MLP projections, activation-aware calibration, save/load |
+| `eval_compress.py` | The four-axis evaluation: perplexity, legality, top-1, value correlation |
+| `sweep.py`, `sensitivity.py` | Compression arms across ratios; per-layer damage profile |
+| `heal.py` | Post-factorisation LoRA finetune, folded back into the factors |
+| `report.py`, `figures.py`, `compress_run.sh` | Wilson intervals and tables, the figures, the full rerun |
 
 ## Credits
 

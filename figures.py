@@ -9,6 +9,9 @@ from pathlib import Path
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+
+from report import wilson
 
 OUT = Path("docs/figures")
 RUNS = Path("runs/compress")
@@ -30,8 +33,10 @@ def rows(path=RUNS / "results.jsonl"):
     out = []
     for line in open(path):
         r = json.loads(line)
-        if "error" not in r:
-            out.append(r)
+        if "error" in r:
+            continue
+        r.setdefault("arm", r["tag"].split("_")[0])
+        out.append(r)
     return out
 
 
@@ -80,18 +85,27 @@ def fig_decay(rs, base, th_name, th):
     for ax, (key, label, log) in zip(axes.ravel(), METRICS):
         style(ax, th)
         for arm in ("quant", "svd", "asvd", "healed"):
-            pts = sorted([(shrink_of(r, base), r[key]) for r in rs
+            pts = sorted([(shrink_of(r, base), r[key], r.get("n_move", 0)) for r in rs
                           if r["arm"] == arm and key in r])
             if not pts:
                 continue
-            ax.plot([p[0] * 100 for p in pts], [p[1] for p in pts], "o-", ms=4, lw=1.6,
-                    color=ARM_COLOR[arm], label=ARM_LABEL[arm])
+            xs = [p[0] * 100 for p in pts]
+            ys = [p[1] for p in pts]
+            # legal and top1 are proportions over a finite test set: draw the sampling error
+            # rather than letting a noisy line read as a trend.
+            err = None
+            if key in ("legal", "top1"):
+                err = [[y - wilson(round(y * n), n)[0] for _, y, n in pts],
+                       [wilson(round(y * n), n)[1] - y for _, y, n in pts]]
+            ax.errorbar(xs, ys, yerr=err, fmt="o-", ms=4, lw=1.6, elinewidth=1.0, capsize=2.5,
+                        color=ARM_COLOR[arm], label=ARM_LABEL[arm], alpha=0.95)
         ax.axhline(base[key], ls="--", lw=1.2, color=th["soft"], alpha=0.8)
         if log:
             ax.set_yscale("log")
         ax.set_xlabel("model shrunk by (%)")
         ax.set_title(label, fontsize=10.5, loc="left")
     h, l = axes[0][0].get_legend_handles_labels()
+    h = h + [Line2D([], [], ls="--", lw=1.2, color=th["soft"])]
     leg = fig.legend(h, l + ["uncompressed"], loc="lower center", ncol=4, frameon=False,
                      bbox_to_anchor=(0.5, -0.04), fontsize=9)
     for t in leg.get_texts():

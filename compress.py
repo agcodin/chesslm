@@ -9,7 +9,7 @@ layer's *output*, x W^T. Scaling the columns of W by how strongly each input cha
 fires on real positions, factorising that, then unscaling, minimises a closer proxy. That is the
 ASVD idea, and here the calibration data is chess positions rather than generic text.
 """
-import json, shutil
+import json
 from pathlib import Path
 
 import mlx.core as mx
@@ -212,18 +212,9 @@ def save_compressed(model, tokenizer, out_dir: str, base_model: str, ranks: dict
     mx.save_safetensors(str(out / "weights.safetensors"), weights)
     (out / "compress_config.json").write_text(json.dumps(
         {"base_model": base_model, "ranks": ranks, **meta}, indent=2))
+    # No config.json is copied: load_compressed rebuilds the architecture from `base_model`, so
+    # the only things this directory has to carry are the weights, the ranks, and the tokenizer.
     tokenizer.save_pretrained(str(out))
-    src = Path(model_path_for(base_model))
-    for f in ("config.json",):
-        if (src / f).exists():
-            shutil.copy(src / f, out / f)
-
-
-def model_path_for(base_model: str) -> str:
-    """Local snapshot directory for a model id (already cached by earlier training runs)."""
-    from mlx_lm.utils import get_model_path
-    p = get_model_path(base_model)
-    return str(p[0] if isinstance(p, tuple) else p)
 
 
 def load_compressed(path: str, adapter: str | None = None):

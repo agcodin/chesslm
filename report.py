@@ -27,8 +27,18 @@ def fmt_prop(p, n):
     return f"{p*100:.1f}% [{lo*100:.1f}–{hi*100:.1f}]"
 
 
+def arm_of(r) -> str:
+    """Rows written straight from eval_compress.py have no arm field; recover it from the tag."""
+    if "arm" in r:
+        return r["arm"]
+    return r["tag"].split("_")[0]
+
+
 def load(path):
-    return [json.loads(l) for l in open(path) if "error" not in json.loads(l)]
+    rs = [json.loads(l) for l in open(path) if "error" not in json.loads(l)]
+    for r in rs:
+        r["arm"] = arm_of(r)
+    return rs
 
 
 def size_label(r):
@@ -56,23 +66,39 @@ def table(rs) -> str:
     return "\n".join(lines)
 
 
+def separated(p_a, n_a, p_b, n_b) -> bool:
+    """True when two proportions' Wilson intervals do not overlap, i.e. the gap is not just noise."""
+    lo_a, hi_a = wilson(round(p_a * n_a), n_a)
+    lo_b, hi_b = wilson(round(p_b * n_b), n_b)
+    return hi_b < lo_a or hi_a < lo_b
+
+
 def divergence_note(rs) -> str:
-    """State the headline comparison and whether it survives its own error bars."""
+    """Compare what perplexity says to what the capability metrics say, at matched size.
+
+    Reported as relative retention rather than a single ratio: when perplexity barely moves, a
+    "how many times larger" figure divides by something near zero and reads as drama rather than
+    evidence. The thing that matters is whether a capability drop clears its own error bars.
+    """
     base = next(r for r in rs if r["tag"].startswith("baseline"))
+    nb = base["n_move"]
     out = []
     for r in rs:
-        if r["arm"] != "quant":
+        if r["tag"].startswith("baseline"):
             continue
-        n = r["min_n"] if "min_n" in r else r["n_move"]
-        ppl_cost = r["ppl"] / base["ppl"] - 1
-        top1_cost = 1 - r["top1"] / base["top1"]
-        lo_b, hi_b = wilson(round(base["top1"] * base["n_move"]), base["n_move"])
-        lo_r, hi_r = wilson(round(r["top1"] * n), n)
-        sep = "separated" if hi_r < lo_b else "overlapping"
-        ratio = (top1_cost / ppl_cost) if ppl_cost > 1e-9 else float("inf")
-        out.append(f"- **{r['level']}-bit**: perplexity worsens {ppl_cost*100:+.1f}%, "
-                   f"top-1 skill falls {top1_cost*100:.1f}% relative "
-                   f"({ratio:.0f}x larger) — intervals {sep} (n={n})")
+        n = r["n_move"]
+        ppl_ratio = r["ppl"] / base["ppl"]
+        bits = []
+        for key, label in (("legal", "legality"), ("top1", "top-1")):
+            if key not in r:
+                continue
+            retained = r[key] / base[key] if base[key] else float("nan")
+            flag = "significant" if separated(base[key], nb, r[key], n) else "within noise"
+            bits.append(f"{label} retains {retained*100:.0f}% ({flag})")
+        vc = r.get("value_corr")
+        if vc is not None and base.get("value_corr"):
+            bits.append(f"value corr retains {vc/base['value_corr']*100:.0f}%")
+        out.append(f"- **`{r['tag']}`**: perplexity {ppl_ratio:.2f}x; " + "; ".join(bits))
     return "\n".join(out)
 
 

@@ -12,6 +12,7 @@ The axes are deliberately ordered from surface competence to actual skill:
 The claim worth testing is that these do not decay together.
 """
 import argparse, json, re
+from pathlib import Path
 import chess
 import mlx.core as mx
 import numpy as np
@@ -108,7 +109,15 @@ if __name__ == "__main__":
     a = ap.parse_args()
 
     res = evaluate_all(a.model, a.adapter, a.n_move, a.n_value, a.skip_legal)
-    res = {"tag": a.tag or a.model, **res}
+    # A compressed directory already records what it is and how much it saved; carry that into
+    # the results line so the figures can place the point at its true size.
+    meta = {}
+    cfg = Path(a.model) / "compress_config.json"
+    if cfg.exists():
+        c = json.loads(cfg.read_text())
+        meta = {k: c[k] for k in ("arm", "base_arm", "keep", "params", "dense_params", "shrink",
+                                  "healed_iters", "final_loss") if k in c}
+    res = {"tag": a.tag or a.model, **meta, **res}
     line = json.dumps(res)
     print(line)
     if a.out:

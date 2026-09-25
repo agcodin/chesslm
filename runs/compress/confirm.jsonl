@@ -1,0 +1,2 @@
+{"tag": "baseline_fp16", "n_move": 800, "ppl": 4.6406, "legal": 0.5775, "top1": 0.155, "n_value": 400, "value_corr": 0.865, "value_mae": 0.304, "value_sign": 0.855}
+{"tag": "quant_4bit", "arm": "quant", "level": 4, "eff_params": null, "bytes": 868547584, "n_move": 800, "ppl": 4.6609, "legal": 0.5775, "top1": 0.135, "n_value": 400, "value_corr": 0.843, "value_mae": 0.34, "value_sign": 0.853, "secs": 182.6}

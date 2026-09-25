@@ -26,11 +26,9 @@ Top-1 agreement with Stockfish depth 12 on fixed test set (data/test.jsonl):
 Games vs SF skill 0: raw policy untrained 0.5/4, adapters_best 0/4; with PUCT search adapters_best 0/3 (sims 8 and 16), lasting 25-39 moves.
 Takeaway: supervised move-matching plateaus ~10-12%; next gains need a learned value head / better search, not more of the same SFT.
 
-## Publishing later (TODO)
-- Ask for the GitHub repo name and personal site details (repo, framework, how it deploys)
-- git init; .gitignore: data/ adapters/ runs/ .venv/ *.log
-- Adapters too big for git → Hugging Face Hub or a GitHub release
-- Site: project page + demo video/GIF + Elo chart
+## Publishing (done 2026-09-18)
+- Repo: https://github.com/agcodin/chesslm (public). Project page: https://agcodin.github.io/chesslm/
+- Still open: adapters are in weights/ as a 21 MB LoRA; larger artefacts would need HF Hub or a release.
 
 ## Components (added 2026-09-17)
 - engine.py: LLM priors over all legal moves (character-level trie walk + KV-cache trim) + PUCT search; leaf value = material/mobility heuristic (not learned yet)
@@ -120,3 +118,28 @@ or a weaker opponent such as SF depth 1 / a random mover) so learned-vs-material
 - Replication rating of sp_expert running (runs/sp_expert/rating_repeat.json) to check the 26.3% headline.
 - Replication of sp_expert (independent games: 1,275 moves vs 1,324): blunder 27.3%, ACPL 249 (first run 26.3%, 240).
   Pooled ~26.8% vs baseline 32.1%. Headline holds. play.py / server.py / rating.py now default to models/best.
+
+
+## Compression study (session 2026-09-25)
+Question: does compression damage a narrow skill faster than perplexity admits? Chess gives a
+ground truth that fluency cannot fake, so eval_compress.py scores four axes at once -- perplexity,
+unconstrained legal-move rate, Stockfish top-1, value correlation.
+
+- compress.py factorises the three MLP projections (75% of params). Truncation goes through the
+  Gram matrix of the narrow (1536) side: a direct SVD of an 8960-row projection asks for an
+  8960x8960 U and GPU-times-out. Verified against numpy's SVD to 5 significant figures.
+- mlx_lm.fuse CLI is unusable offline (wants a complete Hub snapshot incl. README/LICENSE);
+  compress.load_fused does the same merge in memory.
+- Findings at n_move=120 (runs/compress/results.jsonl, table.md):
+  - quantisation is nearly free: 8-bit lossless, 4-bit ~1% perplexity for ~10% relative skill.
+  - plain SVD is catastrophic far earlier than expected: 7% smaller -> ppl 3.2x, legality 65% -> 0%.
+  - activation-aware (ASVD, calibrated on chess positions) is worth 1-2 orders of magnitude:
+    at 23% smaller, ppl 280.6 -> 9.8.
+  - THE RESULT: asvd keep=0.8 (15% smaller) has ppl 1.83x and value corr 87% retained, while
+    legality falls 65% -> 19% with separated Wilson intervals. Two metrics say fine, model is broken.
+- top1 is too noisy to carry the claim: baseline only 15.5%, trie floors a dead model at 4-6%,
+  interval ~+-5pp at n=120. Legality does the work. Do not headline top1.
+- Healing at 400 iters x batch 4 FAILED to recover (ppl 9.84 -> 8.70, skill flat, loss stuck 1.57
+  vs ~0.6 for the original finetune). Undertrained: 1,600 examples vs 64,000. Long runs (3000 x 8)
+  queued as stage3; heal.py folds LoRA back into the factors so size is unchanged.
+- CAUTION confirmed again: never run an eval alongside training. Stages are separate processes.
