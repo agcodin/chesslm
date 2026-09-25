@@ -120,8 +120,16 @@ The claim worth testing is that these do not fall together.
 ### What happened
 
 **Quantisation is nearly free, and is the baseline to beat.** 8-bit is indistinguishable from the
-original on all four axes. 4-bit costs 1% of perplexity and about 10% of relative skill, at 0.87 GB
-against 3.09 GB. Nothing else here comes close to that trade.
+original on all four axes. 4-bit was re-measured on 800 positions rather than 120 to tighten the
+intervals, and it holds up: perplexity rises 0.4%, the legal-move rate is unchanged at 57.8%, value
+correlation goes 0.865 to 0.843, and the top-1 gap (15.5% to 13.5%) sits inside its own confidence
+interval. For 0.87 GB against 3.09 GB, that is effectively lossless, and nothing else here comes
+close to the trade.
+
+It is worth saying plainly that this cuts against the result I went looking for. I expected 4-bit
+to show the divergence too. It does not — the metrics agree with each other, because the model
+really is intact. The divergence below belongs to rank truncation specifically, not to compression
+in general.
 
 **Low-rank factorisation without repair is catastrophic, far earlier than expected.** Truncating
 the MLP projections by rank — the family of methods behind "quantum-inspired" tensor-network

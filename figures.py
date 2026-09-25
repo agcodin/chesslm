@@ -122,8 +122,15 @@ def fig_divergence(rs, base, th_name, th):
     Perplexity is the metric compression work usually reports. If it retains far more than skill
     does at the same setting, then it is hiding the cost.
     """
-    q = sorted([r for r in rs if r["arm"] == "quant"], key=lambda r: -r["level"])
-    fig, ax = plt.subplots(figsize=(8, 4.4), facecolor=th["bg"])
+    # Quantisation is the control: its metrics move together, so it shows what agreement looks
+    # like. The factorised models are the effect. Quantisation rows come from the 800-position
+    # confirmation run where available, since that is what the claim about it rests on.
+    conf = {r["tag"]: r for r in rows(RUNS / "confirm.jsonl")} if (RUNS / "confirm.jsonl").exists() else {}
+    by_tag = {r["tag"]: r for r in rs}
+    picks = ["quant_4bit", "quant_3bit", "asvd_keep0.9", "asvd_keep0.8", "asvd_keep0.7"]
+    q = [conf.get(t, by_tag.get(t)) for t in picks]
+    q = [r for r in q if r]
+    fig, ax = plt.subplots(figsize=(9, 4.4), facecolor=th["bg"])
     style(ax, th)
     keys = [("ppl", "perplexity"), ("legal", "legal-move rate"),
             ("top1", "Stockfish top-1"), ("value_corr", "value correlation")]
@@ -138,11 +145,22 @@ def fig_divergence(rs, base, th_name, th):
                color=list(ARM_COLOR.values())[j], alpha=0.9)
     ax.axhline(100, ls="--", lw=1.2, color=th["soft"])
     ax.set_xticks(range(len(q)))
-    ax.set_xticklabels([f"{r['level']}-bit" for r in q])
+    labels = []
+    for r in q:
+        labels.append(f"{r['level']}-bit" if r["arm"] == "quant"
+                      else f"low-rank\n{r['shrink']*100:.0f}% smaller")
+    ax.set_xticklabels(labels, fontsize=9)
     ax.set_ylabel("% of uncompressed retained")
-    ax.set_title("Perplexity survives quantisation; chess skill does not", fontsize=12, loc="left",
-                 color=th["ink"])
-    leg = ax.legend(frameon=False, fontsize=9, ncol=2)
+    ax.axvline(1.5, color=th["rule"], lw=1.2)
+    ax.text(0.5, 112, "quantisation:\nall four move together", ha="center", fontsize=9,
+            color=th["soft"])
+    ax.text(3, 112, "rank truncation:\nvalue correlation holds while legality collapses",
+            ha="center", fontsize=9, color=th["soft"])
+    ax.set_ylim(0, 124)
+    ax.set_title("Four metrics on the same compressed model, disagreeing", fontsize=12,
+                 loc="left", color=th["ink"])
+    leg = ax.legend(frameon=False, fontsize=9, ncol=4, loc="upper center",
+                    bbox_to_anchor=(0.5, -0.13))
     for t in leg.get_texts():
         t.set_color(th["soft"])
     fig.tight_layout()

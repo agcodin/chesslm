@@ -1,2 +1,3 @@
 {"tag": "baseline_fp16", "n_move": 800, "ppl": 4.6406, "legal": 0.5775, "top1": 0.155, "n_value": 400, "value_corr": 0.865, "value_mae": 0.304, "value_sign": 0.855}
 {"tag": "quant_4bit", "arm": "quant", "level": 4, "eff_params": null, "bytes": 868547584, "n_move": 800, "ppl": 4.6609, "legal": 0.5775, "top1": 0.135, "n_value": 400, "value_corr": 0.843, "value_mae": 0.34, "value_sign": 0.853, "secs": 182.6}
+{"tag": "quant_3bit", "arm": "quant", "level": 3, "eff_params": null, "bytes": 675601408, "n_move": 800, "ppl": 5.424, "legal": 0.5125, "top1": 0.12, "n_value": 400, "value_corr": 0.761, "value_mae": 0.377, "value_sign": 0.802, "secs": 164.6}
