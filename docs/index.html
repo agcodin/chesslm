@@ -326,6 +326,25 @@ footer { margin-top: 96px; border-top: 1px solid var(--rule); padding-top: 18px;
       done by legality and value correlation. Every proportion is published with its interval, and
       the ones that are noise are labelled as noise.</p>
     </figure>
+
+    <figure>
+      <picture>
+        <source srcset="figures/healing_dark.png" media="(prefers-color-scheme: dark)">
+        <img src="figures/healing_light.png" alt="Four panels showing metrics before and after healing for two compression settings. The 23%-smaller model recovers to baseline on all four; the 7%-smaller model gets worse.">
+      </picture>
+      <h3>And then the repair changes the answer</h3>
+      <p>Everything above is a model that was truncated and never repaired. Give the surviving
+      parameters 3,000 steps to compensate &mdash; with adapters that fold back into the factors,
+      so the model keeps its size &mdash; and a model <strong>23% smaller</strong> comes back to
+      perplexity 4.53 against the original&rsquo;s 4.64, value correlation 0.848 against 0.865, and
+      a legal-move rate that is, if anything, slightly better than where it started. Rank truncation
+      is survivable at this ratio. It is just that the repair, not the decomposition, is where the
+      work is &mdash; and repair is the part the headline compression numbers tend to omit.</p>
+      <p>One result here is unexplained: the <em>less</em> aggressive setting healed <em>worse</em>,
+      ending below where it began. Same hyperparameters, same seed, same number of steps. With one
+      run per setting I cannot separate an unstable run from something that degrades at high rank,
+      so it stays on the page as an open question rather than being averaged away.</p>
+    </figure>
   </section>
 
   <section id="play">

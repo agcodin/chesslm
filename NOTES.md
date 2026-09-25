@@ -139,9 +139,19 @@ unconstrained legal-move rate, Stockfish top-1, value correlation.
     legality falls 65% -> 19% with separated Wilson intervals. Two metrics say fine, model is broken.
 - top1 is too noisy to carry the claim: baseline only 15.5%, trie floors a dead model at 4-6%,
   interval ~+-5pp at n=120. Legality does the work. Do not headline top1.
-- Healing at 400 iters x batch 4 FAILED to recover (ppl 9.84 -> 8.70, skill flat). 1,600 examples
-  vs the 64,000 the adapter saw. Long runs (3000 x 8) as stage3; heal.py folds LoRA back into the
-  factors so size is unchanged.
+- Healing at 400 iters x batch 4 FAILED (ppl 9.84 -> 8.70, skill flat). 1,600 examples vs 64,000.
+- Healing at 3000 iters x batch 8 WORKED at keep=0.7, and this is the headline. 23% smaller, at
+  n=800: ppl 4.53 (base 4.64), legal 63.2% [59.9-66.5] (base 57.8% [54.3-61.1]), value corr 0.848
+  (base 0.865), top1 11.9% [9.8-14.3] (base 15.5% [13.2-18.2], overlapping). Final train loss 0.87.
+- OPEN: keep=0.9 healed WORSE than unhealed (ppl 6.54 -> 7.30, legal 51.7% -> 18.3%, value corr
+  0.809 -> -0.059, final loss 1.31). Same seed/lr/steps as the run that worked. Suspects, in order:
+  (1) unstable run -- rerun with another seed and lower lr first, cheapest discriminator;
+  (2) _thin_svd's Gram trick squares the condition number, so at r=1180 the smallest retained
+      singular values are near float32 noise and B = (M @ V)/s amplifies it -- check by comparing
+      float32 Gram vs float64 reconstruction error as a function of rank;
+  (3) r=1180 sits near breakeven 1311, so the factorisation is barely saving anything anyway.
+  Note the unhealed keep=0.9 model was FINE (best ppl of the arm), so this is about training, not
+  about the factorisation being born broken. Do not write a trend through one sample per setting.
 - CARE: do not compare heal.py's training loss to the "val loss 0.600" logged above. That 0.600 is
   value-task validation loss; heal.py trains on the mixed move+value data and reports a running
   train loss. Different data, different split -- not a like-for-like floor. To state a real

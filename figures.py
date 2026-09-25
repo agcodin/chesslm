@@ -204,9 +204,10 @@ def fig_healing(rs, base, th_name, th):
     fig, axes = plt.subplots(1, len(METRICS), figsize=(11, 3.4), facecolor=th["bg"])
     for ax, (key, label, log) in zip(axes, METRICS):
         style(ax, th)
+        shades = ["#2f7a4a", "#b42318", "#a16207"]
         for i, (healed, raw) in enumerate(pairs):
             ax.plot([0, 1], [raw[key], healed[key]], "o-", lw=1.8, ms=5,
-                    color=ARM_COLOR["healed"],
+                    color=shades[i % len(shades)],
                     label=f"{raw['shrink']*100:.0f}% smaller" if ax is axes[0] else None)
         ax.axhline(base[key], ls="--", lw=1.2, color=th["soft"])
         ax.set_xticks([0, 1])
@@ -214,9 +215,14 @@ def fig_healing(rs, base, th_name, th):
         if log:
             ax.set_yscale("log")
         ax.set_title(label, fontsize=9.5, loc="left")
-    fig.suptitle("A short finetune recovers most of what truncation destroyed", color=th["ink"],
-                 fontsize=12.5, x=0.02, ha="left")
-    fig.tight_layout(rect=[0, 0, 1, 0.9])
+    fig.suptitle("Healing fixes one setting completely and makes the other worse",
+                 color=th["ink"], fontsize=12.5, x=0.02, ha="left")
+    h, l = axes[0].get_legend_handles_labels()
+    leg = fig.legend(h, l, loc="lower center", ncol=len(l), frameon=False, fontsize=9,
+                     bbox_to_anchor=(0.5, -0.03))
+    for t in leg.get_texts():
+        t.set_color(th["soft"])
+    fig.tight_layout(rect=[0, 0.03, 1, 0.9])
     save(fig, "healing", th_name)
 
 

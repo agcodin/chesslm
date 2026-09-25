@@ -20,6 +20,8 @@
 | `asvd_keep0.3` | 734M (52% smaller) | 477.24 (102.72x) | 0.0% [0.0–3.1] | 5.0% [2.3–10.5] | -0.116 |
 | `healed_keep0.7` | — | 8.70 (1.87x) | 9.2% [5.2–15.7] | 6.7% [3.4–12.6] | -0.198 |
 | `healed_keep0.5` | — | 8.88 (1.91x) | 9.2% [5.2–15.7] | 5.8% [2.9–11.6] | -0.079 |
+| `healedlong_keep0.9` | 1428M (7% smaller) | 7.30 (1.57x) | 18.3% [12.4–26.2] | 8.3% [4.6–14.7] | -0.059 |
+| `healedlong_keep0.7` | 1196M (23% smaller) | 4.53 (0.98x) | 67.5% [58.7–75.2] | 14.2% [9.0–21.5] | 0.863 |
 
 ### Divergence
 
@@ -42,3 +44,5 @@
 - **`asvd_keep0.3`**: perplexity 102.72x; legality retains 0% (significant); top-1 retains 32% (within noise); value corr retains -13%
 - **`healed_keep0.7`**: perplexity 1.87x; legality retains 14% (significant); top-1 retains 42% (within noise); value corr retains -23%
 - **`healed_keep0.5`**: perplexity 1.91x; legality retains 14% (significant); top-1 retains 37% (within noise); value corr retains -9%
+- **`healedlong_keep0.9`**: perplexity 1.57x; legality retains 28% (significant); top-1 retains 53% (within noise); value corr retains -7%
+- **`healedlong_keep0.7`**: perplexity 0.98x; legality retains 104% (within noise); top-1 retains 90% (within noise); value corr retains 100%

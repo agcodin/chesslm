@@ -152,6 +152,36 @@ reliably produce a legal chess move.
 That is the whole argument in one row. A compression method reporting only perplexity here would
 report a mild, acceptable cost.
 
+### Healing is the whole game
+
+Everything above describes factorised models that were never repaired. Truncation throws away
+directions in weight space and the surviving parameters have never been asked to compensate;
+healing gives them a few thousand steps to do it, with LoRA adapters that are folded back into the
+factors afterwards, so the model keeps exactly the size it had.
+
+At 400 steps this did almost nothing — 1,600 examples against the 64,000 the original adapter saw.
+At 3,000 steps and batch 8 it changes the conclusion completely. Measured on 800 positions:
+
+| | uncompressed | factorised, 23% smaller | after healing |
+|---|---|---|---|
+| perplexity | 4.64 | 9.84 | **4.53** |
+| legal-move rate | 57.8% [54.3–61.1] | 17.5% | **63.2% [59.9–66.5]** |
+| top-1 agreement | 15.5% [13.2–18.2] | 4.2% | 11.9% [9.8–14.3] |
+| value correlation | 0.865 | 0.377 | **0.848** |
+
+A model with 23% of its parameters removed matches the original on perplexity and value
+correlation and is not distinguishable from it on the legal-move rate. Top-1 agreement retains 77%,
+and even that gap sits inside its own interval. So rank truncation is survivable at this ratio —
+but only if you pay for the repair, which is the part the headline compression numbers tend to
+leave out.
+
+**An anomaly I have not resolved.** The *less* aggressive setting healed *worse*. At 7.5% smaller,
+healing left the model at perplexity 7.30 with a legal-move rate of 18%, which is worse than the
+same model before healing (6.54). Identical hyperparameters, same seed, same step count; the only
+structural difference is that its rank sits closer to the break-even point. Either that run hit an
+instability, or something in the factorisation degrades at high rank. One sample per setting cannot
+tell those apart, so it is recorded here as an open question rather than smoothed into the trend.
+
 ### What did not work, and what this does not show
 
 - **Top-1 agreement is too noisy to carry the claim, and I expected it to be the headline.** The
@@ -160,18 +190,14 @@ report a mild, acceptable cost.
   model. The dynamic range is too small. Legality and value correlation do the work instead. Every
   proportion in `runs/compress/table.md` carries its interval, and the ones that are noise are
   labelled as noise.
-- **Healing is the expensive part, and a short run does not buy it.** Folding LoRA adapters onto
-  the factors and finetuning for 400 steps moved perplexity from 9.84 to 8.70 and left skill flat
-  — that is 1,600 examples against the 64,000 the original adapter saw. A longer run (3,000 steps
-  at batch 8) drives the training loss down but it flattens out well above where a healthy model
-  sits, which says the rank-8 adapters cannot rebuild what truncation removed, not merely that the
-  run was short. This is the step compression vendors spend real compute on; treat the numbers here
-  as a floor on the method, not its ceiling.
 - **This is one model on one task.** A 1.5B model fine-tuned for a narrow skill is exactly the case
   where compression should hurt most: there is less redundancy to give up than in a general model.
   The direction of the effect should generalise; the magnitudes should not be assumed to.
-- **No claim to beat quantisation.** It doesn't. 4-bit quantisation is better than every
-  factorisation here at every ratio. The point of the study is what the metrics hide, not a new
+- **No claim to beat quantisation.** It doesn't. The healed model recovers its quality but is
+  still 2.4 GB in fp16 against 0.87 GB for 4-bit, which loses nothing measurable here. Removing
+  parameters and lowering precision are complementary — the healed factorisation could be
+  quantised on top, and that combination is the obvious next experiment — but on its own,
+  factorisation is the worse deal. The point of the study is what the metrics hide, not a new
   state of the art.
 
 ### Reproducing it
