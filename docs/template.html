@@ -127,6 +127,7 @@ section { margin-top: 88px; display: grid; gap: 22px; }
 figure { margin: 0; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 18px; display: grid; gap: 12px; }
 figcaption { font-size: 14px; color: var(--ink-soft); line-height: 1.45; }
 figure h3 { font-size: 17px; }
+figure img { width: 100%; height: auto; display: block; border-radius: 6px; }
 svg text { font-family: var(--mono); }
 .tablewrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px; background: var(--panel); }
 table { border-collapse: collapse; width: 100%; font-size: 15px; min-width: 620px; }
@@ -277,6 +278,54 @@ footer { margin-top: 96px; border-top: 1px solid var(--rule); padding-top: 18px;
       <div class="finding"><span class="tag">Scale</span><h3>Prompt length mattered more than model size</h3><p>Shortening the prompt from ~450 to ~60 tokens did more than doubling the model. And 4-bit or 8-bit compression gave no speedup: at 1.5B parameters the model isn't limited by memory bandwidth.</p></div>
       <div class="finding"><span class="tag">Search</span><h3>A better evaluator isn't automatically a better search</h3><p>Before expert iteration, a plain material count beat the learned evaluation inside the search. After it, the learned evaluation won clearly, plausibly because the model had been trained to agree with a search that used it.</p></div>
     </div>
+  </section>
+
+
+  <section id="compression">
+    <span class="eyebrow">Compression</span>
+    <h2>How much does shrinking a model actually cost?</h2>
+    <p>Compression is nearly always reported as perplexity: make the model smaller, show that
+    perplexity barely moved, conclude the ability survived. Perplexity averages over every token,
+    so a model can keep its fluency while losing the one narrow skill it was trained for. That is
+    hard to prove on general benchmarks and easy to prove on chess, where there is a ground truth
+    that fluent nonsense cannot fake.</p>
+    <p>So the same compressed model is scored four ways at once: perplexity, whether it can emit a
+    legal move with the legality filter switched off, whether it picks Stockfish&rsquo;s move, and
+    whether its learned evaluation still tracks Stockfish&rsquo;s. The question is whether those
+    four agree.</p>
+
+    <figure>
+      <picture>
+        <source srcset="figures/divergence_dark.png" media="(prefers-color-scheme: dark)">
+        <img src="figures/divergence_light.png" alt="Bar chart comparing four metrics across quantised and low-rank compressed models. The quantised bars are level; the low-rank bars show value correlation staying high while the legal-move rate collapses.">
+      </picture>
+      <h3>They do not agree</h3>
+      <p>Quantisation is the control: all four metrics fall together, because the model really is
+      intact. 4-bit is effectively lossless &mdash; measured on 800 positions, perplexity rises
+      0.4% and the legal-move rate does not move at all.</p>
+      <p>Rank truncation behaves differently. At 15% smaller, value correlation still retains 87%
+      of the original and perplexity reads 1.83x &mdash; numbers you could talk yourself into
+      shipping. Meanwhile the model&rsquo;s ability to produce a legal chess move on its own has
+      fallen from 65% to 19%, with confidence intervals that do not overlap. A paper reporting
+      perplexity alone would call this a mild cost.</p>
+    </figure>
+
+    <figure>
+      <picture>
+        <source srcset="figures/decay_dark.png" media="(prefers-color-scheme: dark)">
+        <img src="figures/decay_light.png" alt="Four panels showing perplexity, legal-move rate, top-1 agreement and value correlation as the model is shrunk, for quantisation, plain SVD and activation-aware SVD.">
+      </picture>
+      <h3>Two findings on the way</h3>
+      <p>Low-rank factorisation without repair fails far earlier than expected: removing just 7% of
+      the parameters raises perplexity 3.2x and drops the legal-move rate to <em>zero</em>. And
+      calibrating the factorisation on real chess activations, rather than minimising error in the
+      weights, is worth one to two orders of magnitude &mdash; at 23% smaller, perplexity 280.6
+      against 9.8 &mdash; for the cost of 32 forward passes.</p>
+      <p>Two things this does not show: it does not beat quantisation, which wins at every ratio
+      here, and top-1 agreement turned out too noisy to carry the argument, so the honest work is
+      done by legality and value correlation. Every proportion is published with its interval, and
+      the ones that are noise are labelled as noise.</p>
+    </figure>
   </section>
 
   <section id="play">
