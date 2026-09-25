@@ -3,8 +3,17 @@ data*/
 adapters*/
 ckpt*/
 cmp*/
-runs/
+models/
 kb/*.tsv
+
+# runs/ is scratch, except the compression study's measurements: small, and the point of the repo.
+# git will not descend into an excluded directory, so exclude the contents and re-admit the parts.
+runs/*
+!runs/compress/
+runs/compress/*
+!runs/compress/*.jsonl
+!runs/compress/*.md
+
 # logs and scratch
 *.log
 *.out
@@ -12,4 +21,3 @@ runs_*.txt
 .venv/
 __pycache__/
 .DS_Store
-models/

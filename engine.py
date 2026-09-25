@@ -4,6 +4,8 @@ The fine-tuned LLM supplies move priors and, through a second prompt, a learned 
 used at the leaves. A handcrafted material + mobility evaluation remains as a baseline.
 """
 import math
+from pathlib import Path
+
 import chess
 import mlx.core as mx
 from mlx_lm import load
@@ -14,12 +16,30 @@ PRUNE_LOGP = math.log(1e-4)  # below this, stop expanding a prefix; its moves sh
 VALUES = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3.2, chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 0}
 
 
+def _load_any(model, adapter):
+    """load(), except a directory holding compress_config.json is rebuilt as a low-rank model.
+
+    An already-loaded (model, tokenizer) pair passes straight through, so a sweep can compress a
+    model in memory and evaluate it without a round trip through disk.
+    """
+    if isinstance(model, tuple):
+        return model
+    if isinstance(model, str) and (Path(model) / "compress_config.json").exists():
+        from compress import load_compressed
+        return load_compressed(model, adapter)
+    return load(model, adapter_path=adapter)
+
+
 class Policy:
     def __init__(self, model="Qwen/Qwen2.5-1.5B-Instruct", adapter="adapters", value_adapter=None):
         """value_adapter loads a second model used only for evaluation, so one adapter can stay
-        specialised on moves and another on value instead of trading one off against the other."""
-        self.model, self.tok = load(model, adapter_path=adapter)
-        self.value_model = load(model, adapter_path=value_adapter)[0] if value_adapter else self.model
+        specialised on moves and another on value instead of trading one off against the other.
+
+        `model` may also be a directory written by compress.py, in which case the low-rank
+        architecture is rebuilt before the weights are loaded.
+        """
+        self.model, self.tok = _load_any(model, adapter)
+        self.value_model = _load_any(model, value_adapter)[0] if value_adapter else self.model
         self.bucket_ids = mx.array([self.tok.encode(" " + chr(ord("a") + i))[0] for i in range(BUCKETS)])
         self.bucket_vals = mx.array(letter_values())
 
