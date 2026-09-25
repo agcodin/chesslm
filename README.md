@@ -161,10 +161,12 @@ report a mild, acceptable cost.
   proportion in `runs/compress/table.md` carries its interval, and the ones that are noise are
   labelled as noise.
 - **Healing is the expensive part, and a short run does not buy it.** Folding LoRA adapters onto
-  the factors and finetuning for 400 steps moved perplexity from 9.84 to 8.70 and left skill flat.
-  That is 1,600 examples against the 64,000 the original adapter saw; the loss was still at 1.57
-  where the finetune reached ~0.6. This is the step compression vendors spend their compute on, and
-  the result here is a measurement of undertraining, not of the method's ceiling.
+  the factors and finetuning for 400 steps moved perplexity from 9.84 to 8.70 and left skill flat
+  — that is 1,600 examples against the 64,000 the original adapter saw. A longer run (3,000 steps
+  at batch 8) drives the training loss down but it flattens out well above where a healthy model
+  sits, which says the rank-8 adapters cannot rebuild what truncation removed, not merely that the
+  run was short. This is the step compression vendors spend real compute on; treat the numbers here
+  as a floor on the method, not its ceiling.
 - **This is one model on one task.** A 1.5B model fine-tuned for a narrow skill is exactly the case
   where compression should hurt most: there is less redundancy to give up than in a general model.
   The direction of the effect should generalise; the magnitudes should not be assumed to.

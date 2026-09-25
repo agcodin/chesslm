@@ -139,7 +139,11 @@ unconstrained legal-move rate, Stockfish top-1, value correlation.
     legality falls 65% -> 19% with separated Wilson intervals. Two metrics say fine, model is broken.
 - top1 is too noisy to carry the claim: baseline only 15.5%, trie floors a dead model at 4-6%,
   interval ~+-5pp at n=120. Legality does the work. Do not headline top1.
-- Healing at 400 iters x batch 4 FAILED to recover (ppl 9.84 -> 8.70, skill flat, loss stuck 1.57
-  vs ~0.6 for the original finetune). Undertrained: 1,600 examples vs 64,000. Long runs (3000 x 8)
-  queued as stage3; heal.py folds LoRA back into the factors so size is unchanged.
+- Healing at 400 iters x batch 4 FAILED to recover (ppl 9.84 -> 8.70, skill flat). 1,600 examples
+  vs the 64,000 the adapter saw. Long runs (3000 x 8) as stage3; heal.py folds LoRA back into the
+  factors so size is unchanged.
+- CARE: do not compare heal.py's training loss to the "val loss 0.600" logged above. That 0.600 is
+  value-task validation loss; heal.py trains on the mixed move+value data and reports a running
+  train loss. Different data, different split -- not a like-for-like floor. To state a real
+  reference, measure the DENSE model's loss with heal.loss_fn on the same batches. Not done yet.
 - CAUTION confirmed again: never run an eval alongside training. Stages are separate processes.
