@@ -95,6 +95,19 @@ What the experiments showed:
 - **Compression did not speed it up.** 8-bit and 4-bit versions were no faster at 1.5B parameters
   (the model is not memory-bandwidth-bound at this size) and 4-bit lost accuracy.
 - **Not yet winning against Stockfish's 1320 setting**: one draw in 30 games across all versions.
+### Limitations
+
+- **Move-matching plateaus.** Supervised top-1 agreement with Stockfish stayed in the 10-12% range
+  (11.75% for the move-only adapter, 12.67% best with the value head, n=300-400 positions per
+  figure, so about +/-3 points). More of the same training did not move it.
+- **The search loses to Stockfish skill 0.** 0/10 in the rating ladder, and 0/3 and 0/2 in earlier
+  small matches (NOTES.md). The ~1000 Elo figure is bounded by a random-mover anchor that lost every
+  game, so read it as roughly 900-1000.
+- **Evaluation sets are small.** Blunder-rate differences are well resolved; Elo differences and
+  most top-1 differences are inside their intervals.
+- **Apple Silicon only.** Inference and training use MLX. The test suite runs anywhere because it
+  does not load weights.
+
 ## Compressing it
 
 Compression results are almost always reported as perplexity: shrink the model, show that
@@ -252,6 +265,24 @@ uv run uvicorn server:app --port 8000
 `phase3.sh` is the unattended loop used for the supervised results: it generates fresh data, trains
 with varying hyperparameters and data mixes, and promotes a model only if move accuracy holds and
 move or value quality improves. `NOTES.md` is the full lab notebook.
+
+## Tests
+
+The suite needs no weights, no GPU and no Stockfish (tests that use Stockfish skip themselves
+if it is missing). MLX is stubbed out when absent, so it also runs on Linux.
+
+```bash
+uv sync
+uv run pytest
+uv run ruff check .
+```
+
+What it covers: value-bucket encoding (21 letters, monotone, round trip), prompt/data formatting,
+`Policy.priors` reaching exactly the legal moves (castling, promotions, en passant, check) against a fake
+model, PUCT search with a stub policy (finds a mate in one, never returns an illegal move, respects the
+simulation budget), the coach's move-fact extraction and opening lookup, and the FastAPI endpoints with
+the model and coach mocked. The fake-model tests need real MLX and skip on Linux. GitHub Actions
+(`.github/workflows/ci.yml`) runs ruff and pytest on every push.
 
 ## Files
 
