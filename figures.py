@@ -3,7 +3,7 @@
 Each figure is rendered twice, light and dark, so the project page can serve whichever the reader's
 system asks for. Colours match docs/template.html.
 """
-import json, math
+import json
 from pathlib import Path
 
 import matplotlib

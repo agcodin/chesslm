@@ -10,7 +10,7 @@ Afterwards the adapters are folded back into the factors, so the saved model kee
 low-rank architecture and parameter count it had before healing -- the recovery is free at
 inference time.
 """
-import argparse, json, math, random, time
+import argparse, json, random, time
 from functools import partial
 from pathlib import Path
 

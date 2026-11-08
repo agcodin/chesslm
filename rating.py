@@ -10,7 +10,7 @@ versions of the model even when every game is lost.
 
 Usage: uv run rating.py --games 10 --sims 16 [--material-value] [--out runs/rating_x.json]
 """
-import argparse, json, math, random, time
+import argparse, json, random, time
 import chess, chess.engine
 from engine import Policy, search
 

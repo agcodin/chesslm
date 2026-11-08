@@ -16,7 +16,7 @@ from pathlib import Path
 import chess
 import mlx.core as mx
 import numpy as np
-from common import letter_values, prompt as move_prompt, value_prompt
+from common import letter_values, prompt as move_prompt
 from engine import Policy
 
 
