@@ -11,10 +11,25 @@ PUCT tree search in which the same model supplies both the move candidates and a
 evaluation of each position. A retrieval-augmented coach explains its moves, and a web board
 lets you play against it.
 
-**Headline:** learning from its own games cut ChessLM's blunder rate from 32% to about 27% of moves
-(replicated), and it plays at roughly **1000 Elo** on a ladder anchored to Stockfish's calibrated
-1320 setting. It does not yet beat that setting. Every number below is a real measurement, including
-the experiments that failed and one prediction of mine that turned out wrong.
+![CI](https://github.com/agcodin/chesslm/actions/workflows/ci.yml/badge.svg)
+
+## Results at a glance
+
+All numbers are from `NOTES.md`, including the ones that did not pan out.
+
+| What | Result |
+|---|---|
+| Supervised move matching (top-1 agreement with Stockfish) | Plateaus at **11.75%** (untrained: 6.5%) |
+| First learned value head (correlation with Stockfish, n=150) | **0.754**, later 0.867 with a tuned data mix |
+| Blunder rate, supervised vs after learning from its own games | 32.1% to 26.3% (replicated at 27.3%) |
+| Elo on a Stockfish-anchored ladder | about 1000 (990 to 1023, intervals overlap) |
+| 23%-smaller healed model vs original (n=800) | perplexity 4.53 vs 4.64, legal-move rate 63.2% vs 57.8% |
+| Games against Stockfish skill 0 | 0/10 won |
+
+**Takeaway:** copying Stockfish stops improving at about 11.75% top-1, and that metric turned out to be
+the wrong one. Training on its own search's choices cut blunders by about 5 points while top-1 went
+down. It plays at roughly **1000 Elo** and does not beat Stockfish skill 0. Needs an Apple Silicon Mac
+to run the model; the tests run anywhere. Details below, and failed experiments are kept in.
 
 ## How it works
 
@@ -94,7 +109,7 @@ What the experiments showed:
 - **A second round did not add more** (28.1%, within noise of round 1, with half the positions).
 - **Compression did not speed it up.** 8-bit and 4-bit versions were no faster at 1.5B parameters
   (the model is not memory-bandwidth-bound at this size) and 4-bit lost accuracy.
-- **Not yet winning against Stockfish's 1320 setting**: one draw in 30 games across all versions.
+- **Not yet winning against Stockfish**: 0/10 against skill 0 in the rating run (`NOTES.md`).
 ### Limitations
 
 - **Move-matching plateaus.** Supervised top-1 agreement with Stockfish stayed in the 10-12% range
@@ -298,6 +313,7 @@ the model and coach mocked. The fake-model tests need real MLX and skip on Linux
 | `coach.py` | Opening lookup, move facts, vector retrieval, explanations |
 | `server.py`, `web/` | FastAPI backend and the playable board |
 | `eval_acc.py`, `eval_value.py`, `play.py` | Move accuracy, value correlation, games vs Stockfish |
+| `tests/`, `.github/workflows/ci.yml` | Pytest suite (no weights or GPU needed) and CI running ruff and pytest |
 | `phase3.sh` | Unattended train / evaluate / promote loop |
 | `compress.py` | Low-rank factorisation of the MLP projections, activation-aware calibration, save/load |
 | `eval_compress.py` | The four-axis evaluation: perplexity, legality, top-1, value correlation |
